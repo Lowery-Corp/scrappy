@@ -86,9 +86,9 @@ export default function Login() {
         </form>
 
         <div className="mt-6 text-center space-y-2">
-          <p className="text-sm text-gray-600 dark:text-gray-400">
+          {/* <p className="text-sm text-gray-600 dark:text-gray-400">
             Demo credentials: admin/password or user/password
-          </p>
+          </p> */}
           <p className="text-sm text-gray-600 dark:text-gray-400">
             Don't have an account?{" "}
             <Link
