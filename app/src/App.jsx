@@ -1,7 +1,10 @@
 import { Link, Route, Routes } from "react-router";
 import { useAuth } from "./auth/AuthProvider";
 import ProtectedRoute from "./components/ProtectedRoute";
+import UserLayout from "./layouts/UserLayout";
+import AuthLayout from "./layouts/AuthLayout";
 import Login from "./pages/Login";
+import CreateUser from "./pages/CreateUser";
 import Home from "./pages/Home";
 import Admin from "./pages/Admin";
 import About from "./pages/About";
@@ -19,12 +22,21 @@ export default function App() {
           <div className="flex justify-between items-center h-16">
             {/* Logo/Brand */}
             <div className="flex items-center">
-              <Link
-                to="/"
-                className="text-xl font-bold text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 transition-colors"
-              >
-                Scrappy App
-              </Link>
+              {isAuthenticated ? (
+                <Link
+                  to="/"
+                  className="text-xl font-bold text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 transition-colors"
+                >
+                  Scrappy
+                </Link>
+              ) : (
+                <Link
+                  to="/user/login"
+                  className="text-xl font-bold text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 transition-colors"
+                >
+                  Scrappy
+                </Link>
+              )}
             </div>
 
             {/* Navigation Links */}
@@ -45,7 +57,7 @@ export default function App() {
                   </Link>
                   {user?.permissions?.includes("read:admin") && (
                     <Link
-                      to="/admin"
+                      to="/auth/admin"
                       className="text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 px-3 py-2 rounded-md text-sm font-medium transition-colors"
                     >
                       Admin
@@ -78,7 +90,7 @@ export default function App() {
                 </div>
               ) : (
                 <Link
-                  to="/login"
+                  to="/user/login"
                   className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
                 >
                   Login
@@ -92,16 +104,22 @@ export default function App() {
       {/* Main Content */}
       <main className="flex-1">
         <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/unauthorized" element={<Unauthorized />} />
-          <Route path="/about" element={<About />} />
+          <Route path="user" element={<UserLayout />}>
+            <Route path="login" element={<Login />} />
+            <Route path="create" element={<CreateUser />} />
+          </Route>
+
+          <Route path="auth" element={<AuthLayout />}>
+            <Route element={<ProtectedRoute requiredPermission="read:admin" />}>
+              <Route path="admin" element={<Admin />} />
+            </Route>
+          </Route>
+
+          <Route path="unauthorized" element={<Unauthorized />} />
+          <Route path="about" element={<About />} />
 
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<Home />} />
-          </Route>
-
-          <Route element={<ProtectedRoute requiredPermission="read:admin" />}>
-            <Route path="/admin" element={<Admin />} />
           </Route>
 
           <Route path="*" element={<NotFound />} />

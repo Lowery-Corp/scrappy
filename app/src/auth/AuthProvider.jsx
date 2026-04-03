@@ -30,6 +30,22 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
+
+  const createUser = ({ username, password }) => {
+    if (username && password) {
+      // TODO: Implement username and password validation, and handle errors (e.g., username already exists, password strength requirements)
+      // Simulate user creation and login
+
+      setUser({
+        username,
+        permissions: ["read:home"], // Default permissions for new users
+      });
+      return { ok: true };
+    }
+
+    return { ok: false, error: "Username and password are required" };
+  };
+
   const hasPermission = (permission) => {
     if (!user) return false;
     return user.permissions.includes(permission);
@@ -40,6 +56,7 @@ export function AuthProvider({ children }) {
       user,
       login,
       logout,
+      createUser,
       hasPermission,
       isAuthenticated: !!user,
     }),
