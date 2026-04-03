@@ -14,3 +14,60 @@ services:
       - CHOKIDAR_USEPOLLING=true
     stdin_open: true
     tty: true
+
+  scrappys-scrapyard:
+    build:
+      context: ./scrappysScrapyard
+      dockerfile: Dockerfile
+    working_dir: /app
+    command: python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    env_file:
+      - ./scrappysScrapyard/.env
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    volumes:
+      - ./scrappysScrapyard:/app
+
+  postgres:
+    image: postgres:17
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_MAIN_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_MAIN_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_MAIN_DB}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    volumes:
+      - postgres_data_scrappys_metadata:/var/lib/postgresql/data
+    env_file:
+      - .env
+
+  db-cache:
+    image: redis:latest
+    ports:
+      - 6379:6379
+    volumes:
+      - db_redis_cache_scrappys_cache:/var/lib/redis
+    command: ["redis-server","--save","", "--appendonly","no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  db_redis_cache_scrappys_cache:
+  postgres_data_scrappys_metadata:
