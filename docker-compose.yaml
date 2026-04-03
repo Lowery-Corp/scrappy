@@ -1,15 +1,15 @@
 services:
-  react-app:
+  scrappys-house:
     build:
-      context: ./app
+      context: ./scrappysHouse
       dockerfile: Dockerfile
     ports:
       - "5173:5173"
     volumes:
-      - ./app:/app
+      - ./scrappysHouse:/app
       - /app/node_modules
     env_file:
-      - ./app/.env
+      - ./scrappysHouse/.env
     environment:
       - CHOKIDAR_USEPOLLING=true
     stdin_open: true
