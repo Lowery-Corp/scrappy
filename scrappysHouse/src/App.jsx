@@ -8,6 +8,7 @@ import CreateUser from "./pages/CreateUser";
 import Home from "./pages/Home";
 import Admin from "./pages/Admin";
 import About from "./pages/About";
+import FileStore from "./pages/FileStore";
 import NotFound from "./pages/NotFound";
 import Unauthorized from "./pages/Unauthorized";
 
@@ -54,6 +55,12 @@ export default function App() {
                     className="text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 px-3 py-2 rounded-md text-sm font-medium transition-colors"
                   >
                     About
+                  </Link>
+                  <Link
+                    to="/store"
+                    className="text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                  >
+                    File Store
                   </Link>
                   {user?.permissions?.includes("read:admin") && (
                     <Link
@@ -120,6 +127,8 @@ export default function App() {
 
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<Home />} />
+            <Route path="/home" element={<Home />} />
+            <Route path="/store" element={<FileStore />} />
           </Route>
 
           <Route path="*" element={<NotFound />} />
