@@ -1,53 +1,37 @@
 from fastapi import APIRouter, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Any
 
-from models.user import User
 from schemas.user import UserLogin
-from core.security import create_access_token
-from auth.dependencies import get_current_active_user, blacklist_current_token
-from db.dependencies import get_session
-from repositories.user import login_user
+from repositories.auth import login_user
+from schemas.user import AuthorizedUser
 
 router = APIRouter(tags=["auth"])
 
-@router.get("/login")
+
+@router.post("/login")
 async def login_route(
     UserLogin: UserLogin,
-    session: AsyncSession = Depends(get_session),
-) -> dict[str, str]:
-    logged_in_user = await login_user(
-        session,
+) -> AuthorizedUser| dict[str, str]:
+    logged_in_user: AuthorizedUser | bool = await login_user(
         UserLogin.email,
         UserLogin.password,
     )
-    if not logged_in_user:
-        return {"message": "Invalid email or password"}
+    if type(logged_in_user) is bool:
+        if logged_in_user is False:
+            return {"message": "Invalid email or password"}
+        elif logged_in_user is True:
+            return {"message": "There was an error logging in"}
 
-    user_token = create_access_token(subject=str(logged_in_user.id))
+    return logged_in_user
 
-    return {"token": user_token}
-
-
-@router.get("/token-check")
-async def token_check_route(
-    current_user: User = Depends(get_current_active_user),
-) -> dict[str, Any]:
-    return {
-        "message": f"Token is valid for user {current_user.email}",
-        "status": True,
-    }
+# TODO: this route should check to see if the token is still
+# valid by calling the auth service.
+@router.get("/check-auth")
+async def token_check_route(token: str) -> dict[str, Any]:
+    return {"status": True}
 
 
+# TODO: Implement logout functionality (e.g., token blacklisting in auth service)
 @router.post("/logout")
-async def logout_route(
-    revoked: bool = Depends(blacklist_current_token),
-) -> dict[str, str]:
+async def logout_route() -> dict[str, str]:
     return {"message": "Successfully logged out"}
-
-
-@router.get("/is-admin")
-async def is_admin_route(
-    current_user: User = Depends(get_current_active_user),
-) -> dict[str, bool]:
-    return {"is_admin": current_user.is_admin}

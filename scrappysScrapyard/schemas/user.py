@@ -35,3 +35,9 @@ class DeleteUser(BaseModel):
     @field_validator("email", mode="before")
     def normalize_email(cls, email: EmailStr) -> str:
         return email.strip().lower()
+
+class AuthorizedUser(BaseModel):
+    id: str
+    username: str
+    is_admin: bool
+    token: str

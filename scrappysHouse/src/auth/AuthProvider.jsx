@@ -1,6 +1,23 @@
 import { createContext, useContext, useMemo, useState } from "react";
+import axios from "axios";
+
+AUTH_URL = process.env.SCRAPPYS_SCRAPYARD_URL;
 
 const AuthContext = createContext(null);
+
+const get_auth_user = async (username, password) => {
+  try {
+    const response = await axios.post(`${AUTH_URL}/api/v1/auth/login`, {
+      username,
+      password,
+    });
+    console.log("Login successful:", response.data);
+    return response.data;
+  } catch (error) {
+    console.error("Login failed:", error);
+    return null;
+  }
+}
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -23,6 +40,8 @@ export function AuthProvider({ children }) {
       return { ok: true };
     }
 
+    auth_user = get_auth_user(username, password);
+    console.log("Auth user:", auth_user);
     return { ok: false, error: "Invalid username or password" };
   };
 
