@@ -36,8 +36,11 @@ class DeleteUser(BaseModel):
     def normalize_email(cls, email: EmailStr) -> str:
         return email.strip().lower()
 
+class UserToken(BaseModel):
+    token: str
+
 class AuthorizedUser(BaseModel):
     id: str
     username: str
     is_admin: bool
-    token: str
+    email: EmailStr
