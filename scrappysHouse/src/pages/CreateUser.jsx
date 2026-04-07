@@ -8,7 +8,7 @@ export default function CreateUser() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const { createUser, isAuthenticated } = useAuth();
+  const { createUser, isAuthenticated, authError } = useAuth();
 
   if (isAuthenticated) {
     return <Navigate to="/" replace />;
@@ -111,6 +111,10 @@ export default function CreateUser() {
               placeholder="Confirm your password"
             />
           </div>
+          <p className="text-red-600 dark:text-red-400 mt-2">
+            {authError ? "Error: " + authError : ""}
+          </p>
+          <br />
 
           <button
             type="submit"

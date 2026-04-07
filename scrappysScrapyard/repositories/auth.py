@@ -1,6 +1,7 @@
 from schemas.user import UserToken, AuthorizedUser
 from core.config import settings
 from httpx import AsyncClient
+from typing import Any
 
 async def login_user(username: str, password: str) -> UserToken | bool:
 
@@ -53,3 +54,21 @@ async def blacklist_token(token: str) -> bool:
         if response.status_code == 200:
             return True
         return False
+
+
+async def register_user(email: str, password: str) -> dict[str, Any]:
+    auth_endpoint: str = f"{settings.auth_api_url}/api/v1/users/create"
+    async with AsyncClient() as client:
+        response = await client.post(
+            auth_endpoint,
+            json={"email": email, "password": password},
+        )
+        data = response.json()
+        if data.get("message") == "User with this email already exists":
+            return {"ok": False, "error": data.get("message")}
+
+        if data.get("ok") == True:
+            return {"ok": True}
+
+        return {"ok": False, "error": "User creation failed"}
+

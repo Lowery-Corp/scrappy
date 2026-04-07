@@ -13,7 +13,7 @@ import NotFound from "./pages/NotFound";
 import Unauthorized from "./pages/Unauthorized";
 
 export default function App() {
-  const { user, logout, isAuthenticated, authLoading } = useAuth();
+  const { user, logout, isAuthenticated, authLoading} = useAuth();
 
   if (authLoading) {
     return <div>Loading...</div>;

@@ -1,14 +1,17 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { api } from "../services/api"
+import { api } from "../services/api";
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [authError, setAuthError] = useState(null);
 
   const login = async ({ username, password }) => {
     try {
+      setAuthError(null);
+
       const response = await api.post("/api/v1/auth/login", {
         email: username,
         password,
@@ -25,11 +28,21 @@ export function AuthProvider({ children }) {
         return { ok: true };
       }
 
-      return { ok: false, error: "Login failed" };
+      const message = "Login failed";
+      setAuthError(message);
+      return { ok: false, error: message };
     } catch (error) {
+      const message =
+        error?.response?.data?.detail ||
+        error?.response?.data?.message ||
+        "Login failed";
+
+      setAuthError(message);
+      setUser(null);
+
       return {
         ok: false,
-        error: error?.response?.data?.detail || "Login failed",
+        error: message,
       };
     }
   };
@@ -41,26 +54,45 @@ export function AuthProvider({ children }) {
       // ignore logout API errors and still clear local user state
     } finally {
       setUser(null);
+      setAuthError(null);
     }
   };
 
   const createUser = async ({ username, password }) => {
     try {
+      setAuthError(null);
+
       const response = await api.post("/api/v1/auth/register", {
         email: username,
         password,
       });
 
-      if (response.data?.user) {
-        setUser(response.data.user);
+      if (response.data?.ok === true) {
+        const loginResult = await login({ username, password });
+
+        if (!loginResult.ok) {
+          const message = loginResult.error || "User created but login failed";
+          setAuthError(message);
+          return { ok: false, error: message };
+        }
+
         return { ok: true };
       }
 
-      return { ok: false, error: "User creation failed" };
+      const message = response.data?.message || "User creation failed";
+      setAuthError(message);
+      return { ok: false, error: message };
     } catch (error) {
+      const message =
+        error?.response?.data?.detail ||
+        error?.response?.data?.message ||
+        "User creation failed";
+
+      setAuthError(message);
+
       return {
         ok: false,
-        error: error?.response?.data?.detail || "User creation failed",
+        error: message,
       };
     }
   };
@@ -73,6 +105,8 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const loadCurrentUser = async () => {
       try {
+        setAuthError(null);
+
         const response = await api.get("/api/v1/auth/me");
         if (response.data?.user) {
           setUser(response.data.user);
@@ -92,14 +126,16 @@ export function AuthProvider({ children }) {
   const value = useMemo(
     () => ({
       user,
+      authError,
       login,
       logout,
       createUser,
       hasPermission,
       isAuthenticated: !!user,
       authLoading,
+      clearAuthError: () => setAuthError(null),
     }),
-    [user, authLoading]
+    [user, authError, authLoading]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

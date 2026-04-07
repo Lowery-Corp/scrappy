@@ -6,7 +6,7 @@ export default function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const { login, isAuthenticated } = useAuth();
+  const { login, isAuthenticated, authError } = useAuth();
 
   if (isAuthenticated) {
     return <Navigate to="/" replace />;
@@ -84,6 +84,11 @@ export default function Login() {
             Sign In
           </button>
         </form>
+
+        <br />
+        <p className="text-red-600 dark:text-red-400 mt-4 text-center">
+          {authError ? "Error: " + authError : ""}
+        </p>
 
         <div className="mt-6 text-center space-y-2">
           {/* <p className="text-sm text-gray-600 dark:text-gray-400">

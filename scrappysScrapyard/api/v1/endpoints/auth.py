@@ -1,8 +1,12 @@
-from fastapi import APIRouter, Depends, Response, Cookie, Request
-from typing import Any
+from fastapi import APIRouter, Response, Cookie, Request
 
-from schemas.user import UserLogin
-from repositories.auth import login_user, get_user_from_token, blacklist_token
+from schemas.user import UserLogin, UserCreate
+from repositories.auth import (
+    login_user,
+    get_user_from_token,
+    blacklist_token,
+    register_user
+)
 from schemas.user import AuthorizedUser, UserToken
 
 router = APIRouter(tags=["auth"])
@@ -36,7 +40,7 @@ async def login_route(
 
     return {"message": "Successfully logged in"}
 
-# TODO: Implement logout functionality (e.g., token blacklisting in auth service)
+
 @router.post("/logout")
 async def logout_route(response: Response, request: Request) -> dict[str, bool]:
     token = request.cookies.get("access_token")
@@ -59,7 +63,6 @@ async def logout_route(response: Response, request: Request) -> dict[str, bool]:
 async def get_current_user_route(
     access_token: str | None = Cookie(default=None)
 ) -> dict[str, AuthorizedUser | str]:
-    print(f"Access token from cookie: {access_token}", flush=True)
     if not access_token:
         return {"message": "Needs to login first"}
 
@@ -71,3 +74,21 @@ async def get_current_user_route(
     return {
         "user": authorized_user
     }
+
+
+@router.post("/register")
+async def register_route(new_user: UserCreate) -> dict[str, bool | str]:
+    user_created = await register_user(
+        email=new_user.email,
+        password=new_user.password,
+    )
+    if user_created.get("ok") == True:
+        return {"ok": True, "message": "User created successfully"}
+    return {"ok": False, "message": user_created.get("error", "User creation failed")}
+
+
+
+
+
+
+
