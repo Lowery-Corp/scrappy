@@ -13,7 +13,11 @@ import NotFound from "./pages/NotFound";
 import Unauthorized from "./pages/Unauthorized";
 
 export default function App() {
-  const { user, logout, isAuthenticated } = useAuth();
+  const { user, logout, isAuthenticated, authLoading } = useAuth();
+
+  if (authLoading) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
