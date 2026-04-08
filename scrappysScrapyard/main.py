@@ -16,7 +16,7 @@ async def lifespan(app: FastAPI):
     await redis_manager.disconnect()
 
 app = FastAPI(
-    title="DB Management API",
+    title="Scrappy's Scrapyard API",
     lifespan=lifespan,
 )
 
