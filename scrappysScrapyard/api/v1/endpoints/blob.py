@@ -6,7 +6,8 @@ from schemas.user import AuthorizedUser
 
 from auth.dependencies import get_current_user
 from db.dependencies import get_session
-from repositories.minio import get_bucket_structure
+from repositories.filestore import sync_user_bucketstore, get_user_bucketstore
+# from repositories.minio import get_bucket_structure
 
 router = APIRouter(tags=["blob"])
 
@@ -14,11 +15,12 @@ router = APIRouter(tags=["blob"])
 
 @router.get("")
 async def fetch_bucket_structure(
-    current_user: AuthorizedUser = Depends(get_current_user)
+    current_user: AuthorizedUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session)
 ) -> dict[str, Any]:
-    bucket_name = f"user-{current_user.id}-bucket"
-    bucket_structure: dict[str, Any] = await get_bucket_structure(bucket_name)
-    return {"bucket_structure": bucket_structure}
+    bucket_structure: dict[str, Any] = await get_user_bucketstore(user_id=current_user.id, session=session)
+
+    return bucket_structure
 
 
 @router.post("/sync")
@@ -27,7 +29,7 @@ async def sync_bucket_structiure(
     current_user: AuthorizedUser = Depends(get_current_user)
 ) -> dict[str, Any]:
 
-    print(current_user)
+    await sync_user_bucketstore(user_id=current_user.id, session=session)
 
     return {"ok": True}
 

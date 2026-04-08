@@ -22,6 +22,18 @@ export default function FileStore() {
     loadFileStructure();
   }, [currentPath]);
 
+  const handleSync = async () => {
+    try {
+      setIsLoading(true);
+      await syncBucketStructure();
+      await loadFileStructure();
+    } catch (error) {
+      console.error("Failed to sync bucket structure:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const loadFileStructure = async () => {
     try {
       setIsLoading(true);
@@ -255,6 +267,12 @@ export default function FileStore() {
                   className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
                 >
                   📁 New Folder
+                </button>
+                <button
+                  onClick={() => handleSync()}
+                  className="px-4 py-2 bg-green-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+                >
+                  📁 Sync Blob
                 </button>
                 <label className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors cursor-pointer">
                   📤 Upload
