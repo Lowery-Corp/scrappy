@@ -1,16 +1,18 @@
-from fastapi import APIRouter, Response, Cookie, Request
+from fastapi import APIRouter, Response, Request, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from db.dependencies import get_session
 from schemas.user import UserLogin, UserCreate
 from repositories.auth import (
     login_user,
-    get_user_from_token,
     blacklist_token,
     register_user
 )
+from repositories.user import create_user_resources
 from schemas.user import AuthorizedUser, UserToken
+from auth.dependencies import get_current_user
 
 router = APIRouter(tags=["auth"])
-
 
 @router.post("/login")
 async def login_route(
@@ -59,36 +61,50 @@ async def logout_route(response: Response, request: Request) -> dict[str, bool]:
     return {"ok": False}
 
 
+# @router.get("/me")
+# async def get_current_user_route(
+#     access_token: str | None = Cookie(default=None)
+# ) -> dict[str, AuthorizedUser | str]:
+#     if not access_token:
+#         return {"message": "Needs to login first"}
+
+#     authorized_user = await get_user_from_token(token=access_token)
+
+#     if not authorized_user:
+#         return {"message": "Invalid or expired token"}
+
+#     return {
+#         "user": authorized_user,
+#     }
+
+
 @router.get("/me")
 async def get_current_user_route(
-    access_token: str | None = Cookie(default=None)
-) -> dict[str, AuthorizedUser | str]:
-    if not access_token:
-        return {"message": "Needs to login first"}
-
-    authorized_user = await get_user_from_token(token=access_token)
-
-    if not authorized_user:
-        return {"message": "Invalid or expired token"}
+    current_user: AuthorizedUser = Depends(get_current_user)
+) -> dict[str, AuthorizedUser]:
 
     return {
-        "user": authorized_user
+        "user": current_user,
     }
 
 
+
 @router.post("/register")
-async def register_route(new_user: UserCreate) -> dict[str, bool | str]:
+async def register_route(
+    new_user: UserCreate,
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, bool | str]:
     user_created = await register_user(
         email=new_user.email,
         password=new_user.password,
     )
+
+    try:
+        await create_user_resources(user_id=user_created.get("user_id", -1), session=session)
+    except Exception as e:
+        print(f"Error creating user resources: {e}")
+
     if user_created.get("ok") == True:
         return {"ok": True, "message": "User created successfully"}
     return {"ok": False, "message": user_created.get("error", "User creation failed")}
-
-
-
-
-
-
 

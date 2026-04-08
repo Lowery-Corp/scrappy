@@ -69,7 +69,7 @@ async def register_user(email: str, password: str) -> dict[str, Any]:
             return {"ok": False, "error": data.get("message")}
 
         if data.get("ok") == True:
-            return {"ok": True}
+            return {"ok": True, "user_id": data.get("user_id", -1)}
 
         return {"ok": False, "error": "User creation failed"}
 

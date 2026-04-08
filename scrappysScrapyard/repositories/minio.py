@@ -39,6 +39,6 @@ async def create_bucket(bucket_name: str) -> dict[str, Any]:
     minio_client = get_minio_client()
     try:
         minio_client.make_bucket(bucket_name)
-        return {"message": f"Bucket '{bucket_name}' created successfully."}
+        return {"message": f"Bucket '{bucket_name}' created successfully.", "ok": True}
     except Exception as e:
         return {"error": str(e)}

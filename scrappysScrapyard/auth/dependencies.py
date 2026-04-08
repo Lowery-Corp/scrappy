@@ -1,8 +1,25 @@
-from fastapi import Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
-from datetime import datetime
+from fastapi import Cookie, HTTPException, status
 
-from db.dependencies import get_session
-from cache.helpers import CacheHelper
-from cache.dependencies import get_cache_helper
+from repositories.auth import (
+    get_user_from_token,
+)
+from schemas.user import AuthorizedUser
 
+async def get_current_user(
+    access_token: str | None = Cookie(default=None),
+) -> AuthorizedUser:
+    if not access_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+        )
+
+    authorized_user = await get_user_from_token(token=access_token)
+
+    if not authorized_user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+        )
+
+    return authorized_user
