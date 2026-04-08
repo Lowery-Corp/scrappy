@@ -8,7 +8,6 @@ router = APIRouter(tags=["minio"])
 
 @router.get("/bucket-structure")
 async def fetch_bucket_structure() -> dict[str, Any]:
-    bucket_structure = await get_bucket_structure("testing")
-    print("Fetched bucket structure:", bucket_structure, flush=True)
+    bucket_structure: dict[str, Any] = await get_bucket_structure("testing")
     return {"bucket_structure": bucket_structure}
 

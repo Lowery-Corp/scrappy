@@ -26,8 +26,9 @@ if config.config_file_name is not None:
 
 # add your model's MetaData object here
 # for 'autogenerate' support
-from models import user
-target_metadata = user.Base.metadata
+from db.base import Base
+
+target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
@@ -53,7 +54,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         include_schemas=True,
-        version_table_schema="auth",
+        version_table_schema="app",
         dialect_opts={"paramstyle": "named"},
     )
 
@@ -66,7 +67,7 @@ def do_run_migrations(connection: Connection) -> None:
         connection=connection,
         target_metadata=target_metadata,
         include_schemas=True,
-        version_table_schema="auth"
+        version_table_schema="app"
     )
 
     with context.begin_transaction():

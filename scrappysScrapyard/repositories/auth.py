@@ -24,9 +24,10 @@ async def login_user(username: str, password: str) -> UserToken | bool:
 async def get_user_from_token(token: str) -> AuthorizedUser | None:
     auth_endpoint: str = f"{settings.auth_api_url}/api/v1/auth/me"
     async with AsyncClient() as client:
+        headers = {"Authorization": f"Bearer {token}"}
         response = await client.get(
             auth_endpoint,
-            headers={"Authorization": f"Bearer {token}"},
+            headers=headers,
         )
         if response.status_code == 401:
             return None
