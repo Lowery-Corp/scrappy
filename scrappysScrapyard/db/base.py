@@ -6,4 +6,4 @@ metadata = MetaData(schema="app")
 class Base(DeclarativeBase):
     metadata = metadata
 
-from models import user_filestore
+from models import user_filestore, file_job, user_file
