@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, status
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,7 +10,6 @@ from repositories.filestore import sync_user_bucketstore, get_user_bucketstore
 # from repositories.minio import get_bucket_structure
 
 router = APIRouter(tags=["blob"])
-
 
 
 @router.get("")
@@ -33,4 +32,22 @@ async def sync_bucket_structiure(
 
     return {"ok": True}
 
+
+@router.post("/upload")
+async def upload_file(
+    file: UploadFile = File(...),
+    current_user: AuthorizedUser = Depends(get_current_user),
+) -> dict[str, Any]:
+
+    print(f"Received file: {file.filename}, content type: {file.content_type}")
+
+    # if not file.filename:
+    #     raise HTTPException(
+    #         status_code=status.HTTP_400_BAD_REQUEST,
+    #         detail="Missing filename",
+    #     )
+
+    return {
+        "ok": True,
+    }
 

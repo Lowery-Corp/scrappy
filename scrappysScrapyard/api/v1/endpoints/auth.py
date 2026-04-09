@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Response, Request, Depends
+from fastapi import APIRouter, Response, Request, Depends, Cookie
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.dependencies import get_session
@@ -11,6 +11,7 @@ from repositories.auth import (
 from repositories.user import create_user_resources
 from schemas.user import AuthorizedUser, UserToken
 from auth.dependencies import get_current_user
+from repositories.auth import get_user_from_token
 
 router = APIRouter(tags=["auth"])
 
@@ -61,31 +62,31 @@ async def logout_route(response: Response, request: Request) -> dict[str, bool]:
     return {"ok": False}
 
 
-# @router.get("/me")
-# async def get_current_user_route(
-#     access_token: str | None = Cookie(default=None)
-# ) -> dict[str, AuthorizedUser | str]:
-#     if not access_token:
-#         return {"message": "Needs to login first"}
-
-#     authorized_user = await get_user_from_token(token=access_token)
-
-#     if not authorized_user:
-#         return {"message": "Invalid or expired token"}
-
-#     return {
-#         "user": authorized_user,
-#     }
-
-
 @router.get("/me")
 async def get_current_user_route(
-    current_user: AuthorizedUser = Depends(get_current_user)
-) -> dict[str, AuthorizedUser]:
+    access_token: str | None = Cookie(default=None)
+) -> dict[str, AuthorizedUser | str]:
+    if not access_token:
+        return {"message": "Needs to login first"}
+
+    authorized_user = await get_user_from_token(token=access_token)
+
+    if not authorized_user:
+        return {"message": "Invalid or expired token"}
 
     return {
-        "user": current_user,
+        "user": authorized_user,
     }
+
+
+# @router.get("/me")
+# async def get_current_user_route(
+#     current_user: AuthorizedUser = Depends(get_current_user)
+# ) -> dict[str, AuthorizedUser]:
+
+#     return {
+#         "user": current_user,
+#     }
 
 
 
