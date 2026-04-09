@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../auth/AuthProvider";
-import { getBucketStructure, syncBucketStructure } from "../services/blob";
+import { getBucketStructure, syncBucketStructure, uploadFile } from "../services/blob";
 import CreateFolder from "../components/fileStoreComs/CreateFolder";
 import FileRename from "../components/fileStoreComs/FileRename";
 import UploadProgress from "../components/fileStoreComs/UploadProgress";
@@ -110,44 +110,49 @@ export default function FileStore() {
     }
   };
 
-  const handleFileUpload = (uploadedFiles) => {
-    Array.from(uploadedFiles).forEach((file, index) => {
-      const fileId = Date.now() + index;
-      setUploadProgress((prev) => ({ ...prev, [fileId]: 0 }));
+  const handleFileUpload = async (uploadedFiles) => {
+    const filesArray = Array.from(uploadedFiles);
 
-      const interval = setInterval(() => {
-        setUploadProgress((prev) => {
-          const currentProgress = prev[fileId] || 0;
+    for (const file of filesArray) {
+      const fileId = `upload-${Date.now()}-${file.name}`;
 
-          if (currentProgress >= 100) {
-            clearInterval(interval);
+      setUploadProgress((prev) => ({
+        ...prev,
+        [fileId]: 0,
+      }));
 
-            setTimeout(() => {
-              const newFile = {
-                id: fileId,
-                name: file.name,
-                type: "file",
-                size: (file.size / (1024 * 1024)).toFixed(1) + " MB",
-                path: currentPath + file.name,
-                createdAt: new Date().toISOString().split("T")[0],
-              };
+      try {
+        const response = await uploadFile(file, (progressEvent) => {
+          const total = progressEvent.total || file.size || 1;
+          const percent = Math.round((progressEvent.loaded * 100) / total);
 
-              setFiles((prev) => [...prev, newFile]);
-
-              setUploadProgress((prev) => {
-                const updated = { ...prev };
-                delete updated[fileId];
-                return updated;
-              });
-            }, 500);
-
-            return prev;
-          }
-
-          return { ...prev, [fileId]: currentProgress + 10 };
+          setUploadProgress((prev) => ({
+            ...prev,
+            [fileId]: percent,
+          }));
         });
-      }, 100);
-    });
+
+        const newFile = {
+          id: `file-${Date.now()}-${file.name}`,
+          name: file.name,
+          type: "file",
+          size: (file.size / (1024 * 1024)).toFixed(1) + " MB",
+          path: currentPath + file.name,
+          createdAt: new Date().toISOString().split("T")[0],
+          ...(response || {}),
+        };
+
+        setFiles((prev) => [...prev, newFile]);
+      } catch (error) {
+        console.error(`Failed to upload ${file.name}:`, error);
+      } finally {
+        setUploadProgress((prev) => {
+          const updated = { ...prev };
+          delete updated[fileId];
+          return updated;
+        });
+      }
+    }
   };
 
   const handleDrop = (e) => {
