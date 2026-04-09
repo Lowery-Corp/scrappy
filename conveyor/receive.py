@@ -2,7 +2,7 @@
 import pika, sys, os
 
 def main():
-    credentials = pika.PlainCredentials("scrappy", "xicrX9jhAeBDPqh1")
+    credentials = pika.PlainCredentials("scrappy", "xxxxxxxxxxxxxxxxx")
     params = pika.ConnectionParameters(
         host="localhost",
         port=5672,
