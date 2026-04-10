@@ -10,7 +10,6 @@ from repositories.auth import (
 )
 from repositories.user import create_user_resources
 from schemas.user import AuthorizedUser, UserToken
-from auth.dependencies import get_current_user
 from repositories.auth import get_user_from_token
 
 router = APIRouter(tags=["auth"])
@@ -50,7 +49,6 @@ async def logout_route(response: Response, request: Request) -> dict[str, bool]:
 
     if token:
         # decode token, get jti, store in blacklist table/cache
-        print("Token to blacklist:", token)
         blacklist_status = await blacklist_token(token)
         print("Blacklist status:", blacklist_status)
 
