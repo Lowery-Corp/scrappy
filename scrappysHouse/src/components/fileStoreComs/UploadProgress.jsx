@@ -1,10 +1,10 @@
-export default function UploadProgress({ uploadProgress }) {
+export default function UploadProgress({ uploadProgress, fileUploadCounter }) {
   if (Object.keys(uploadProgress).length === 0) return null;
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 mb-6">
       <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
-        Uploading Files...
+        Uploading Files... {fileUploadCounter !== null ? `(${fileUploadCounter} remaining)` : ""}
       </h3>
       {Object.entries(uploadProgress).map(([fileId, progress]) => (
         <div key={fileId} className="mb-2">

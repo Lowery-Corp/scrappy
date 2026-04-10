@@ -19,6 +19,7 @@ export default function FileStore() {
   const [uploadProgress, setUploadProgress] = useState({});
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [fileUploadCounter, setFileUploadCounter] = useState(null);
 
   useEffect(() => {
     loadFileStructure();
@@ -113,7 +114,10 @@ export default function FileStore() {
   const handleFileUpload = async (uploadedFiles) => {
     const filesArray = Array.from(uploadedFiles);
 
-    for (const file of filesArray) {
+    setFileUploadCounter(filesArray.length);
+
+    for (let i = 0; i < filesArray.length; i++) {
+      const file = filesArray[i];
       const fileId = `upload-${Date.now()}-${file.name}`;
 
       setUploadProgress((prev) => ({
@@ -122,7 +126,7 @@ export default function FileStore() {
       }));
 
       try {
-        const response = await uploadFile(file, (progressEvent) => {
+        const response = await uploadFile(file, currentPath, (progressEvent) => {
           const total = progressEvent.total || file.size || 1;
           const percent = Math.round((progressEvent.loaded * 100) / total);
 
@@ -142,9 +146,13 @@ export default function FileStore() {
           ...(response || {}),
         };
 
+        // Update remaining count
+        setFileUploadCounter(filesArray.length - (i + 1));
         setFiles((prev) => [...prev, newFile]);
       } catch (error) {
         console.error(`Failed to upload ${file.name}:`, error);
+        // Still decrement counter even on error
+        setFileUploadCounter(filesArray.length - (i + 1));
       } finally {
         setUploadProgress((prev) => {
           const updated = { ...prev };
@@ -153,6 +161,9 @@ export default function FileStore() {
         });
       }
     }
+
+    // Ensure counter is reset to null when done
+    setFileUploadCounter(null);
   };
 
   const handleDrop = (e) => {
@@ -261,7 +272,7 @@ export default function FileStore() {
           onSearchChange={setSearchQuery}
         />
 
-        <UploadProgress uploadProgress={uploadProgress} />
+        <UploadProgress uploadProgress={uploadProgress} fileUploadCounter={fileUploadCounter}/>
 
         <FileDisplay
           folders={filteredFolders}

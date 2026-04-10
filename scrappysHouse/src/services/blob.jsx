@@ -20,7 +20,7 @@ export const syncBucketStructure = async () => {
   }
 };
 
-export const uploadFile = async (file, onUploadProgress) => {
+export const uploadFile = async (file, file_path, onUploadProgress) => {
   try {
     const formData = new FormData();
     formData.append("file", file);
@@ -30,6 +30,9 @@ export const uploadFile = async (file, onUploadProgress) => {
         "Content-Type": "multipart/form-data",
       },
       onUploadProgress,
+      params: {
+        file_path,
+      },
     });
 
     return response.data;

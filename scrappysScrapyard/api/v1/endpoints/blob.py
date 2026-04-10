@@ -6,8 +6,8 @@ from schemas.user import AuthorizedUser
 
 from auth.dependencies import get_current_user
 from db.dependencies import get_session
-from repositories.filestore import sync_user_bucketstore, get_user_bucketstore
-# from repositories.minio import get_bucket_structure
+from repositories.filestore import sync_user_bucketstore, get_user_bucketstore, add_file_to_bucketstore
+from repositories.minio import upload_file_to_minio
 
 router = APIRouter(tags=["blob"])
 
@@ -35,17 +35,20 @@ async def sync_bucket_structiure(
 
 @router.post("/upload")
 async def upload_file(
+    file_path: str,
     file: UploadFile = File(...),
     current_user: AuthorizedUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session)
 ) -> dict[str, Any]:
 
-    print(f"Received file: {file.filename}, content type: {file.content_type}")
+    if not file.filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Missing filename",
+        )
 
-    # if not file.filename:
-    #     raise HTTPException(
-    #         status_code=status.HTTP_400_BAD_REQUEST,
-    #         detail="Missing filename",
-    #     )
+    insert_status = await add_file_to_bucketstore(user_id=current_user.id, file_path=file_path, file=file, session=session) # type: ignore
+    assert insert_status["ok"] == True, f"Failed to add file to bucketstore: {insert_status}"
 
     return {
         "ok": True,

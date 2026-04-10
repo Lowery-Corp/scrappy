@@ -22,7 +22,7 @@ export default function FileStoreHeader({
       <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <div className="min-w-0">
           <h1 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-white">
-            File Store
+            Scrapyard
           </h1>
 
           <div className="mt-1 flex flex-wrap items-center gap-1 text-sm text-gray-500 dark:text-gray-400">

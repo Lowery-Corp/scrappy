@@ -1,4 +1,5 @@
 from functools import lru_cache
+from io import BytesIO
 from minio import Minio
 from typing import Any
 
@@ -32,7 +33,7 @@ async def get_bucket_structure(bucket_name: str) -> dict[str, Any]:
 
         current_level[parts[-1]] = None
 
-    return structure
+    return structure["home"] if "home" in structure else structure
 
 
 async def create_bucket(bucket_name: str) -> dict[str, Any]:
@@ -42,3 +43,42 @@ async def create_bucket(bucket_name: str) -> dict[str, Any]:
         return {"message": f"Bucket '{bucket_name}' created successfully.", "ok": True}
     except Exception as e:
         return {"error": str(e)}
+
+
+async def upload_file_to_minio(
+    bucket_name: str,
+    file_path: str,
+    file_data: bytes,
+) -> dict[str, Any]:
+    minio_client = get_minio_client()
+
+    try:
+        data_stream = BytesIO(file_data)
+
+        minio_client.put_object(
+            bucket_name,
+            file_path,
+            data_stream,
+            length=len(file_data),
+        )
+
+        return {
+            "message": f"File '{file_path}' uploaded successfully to bucket '{bucket_name}'.",
+            "ok": True,
+        }
+    except Exception as e:
+        return {"error": str(e), "ok": False}
+
+
+async def get_file_from_minio(bucket_name: str, file_path: str) -> dict[str, Any]:
+    minio_client = get_minio_client()
+
+    try:
+        response = minio_client.get_object(bucket_name, file_path)
+        file_data = response.read()
+        response.close()
+        response.release_conn()
+
+        return {"file_data": file_data, "ok": True}
+    except Exception as e:
+        return {"error": str(e), "ok": False}
