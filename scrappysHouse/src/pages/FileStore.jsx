@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../auth/AuthProvider";
-import { getBucketStructure, syncBucketStructure, uploadFile } from "../services/blob";
+import { getBucketStructure, syncBucketStructure, uploadFile, deleteFile } from "../services/blob";
 import CreateFolder from "../components/fileStoreComs/CreateFolder";
 import FileRename from "../components/fileStoreComs/FileRename";
 import UploadProgress from "../components/fileStoreComs/UploadProgress";
@@ -164,6 +164,11 @@ export default function FileStore() {
 
     // Ensure counter is reset to null when done
     setFileUploadCounter(null);
+
+    // sync after all uploads to refresh structure and get any new metadata
+    handleSync().catch((error) =>
+      console.error("Failed to sync after deletion:", error)
+    );
   };
 
   const handleDrop = (e) => {
@@ -197,10 +202,50 @@ export default function FileStore() {
 
   const deleteSelected = () => {
     if (selectedItems.length > 0 && confirm(`Delete ${selectedItems.length} item(s)?`)) {
+      console.log("selected media for deletion:", selectedItems);
       setFiles((prev) => prev.filter((file) => !selectedItems.includes(file.id)));
       setFolders((prev) => prev.filter((folder) => !selectedItems.includes(folder.id)));
       setSelectedItems([]);
+      if (
+        selectedItems.length > 0 &&
+        typeof selectedItems[0] === "string" &&
+        selectedItems[0].startsWith("folder-")
+      ) {
+        console.log("Deleting folders:", selectedItems);
+        for (const folderId of selectedItems) {
+          const folder = folders.find((f) => f.id === folderId);
+          if (folder) {
+            console.log(`Deleting folder '${folder.name}' at path '${folder.path}'`);
+            // Recursively deletes all the files in the folder
+            const folder_stucture = files;
+            console.log("Current bucket structure at this point:", folder_stucture);
+            console.log(folder_stucture, folder_stucture["bucket_structure"]);
+            const filesInFolder = files.filter((file) =>
+              file.path.startsWith(folder.path + "/")
+            );
+            console.log(`Found ${filesInFolder.length} file(s) in folder '${folder.name}' to delete`);
+            for (const file of filesInFolder) {
+              console.log(`Deleting file '${file.name}' in folder '${folder.name}' at path '${file.path}'`);
+              deleteFile(file.path).catch((error) =>
+                console.error(`Failed to delete file '${file.name}' in folder '${folder.name}':`, error)
+              );
+            }
+          }
+        }
+      } else {
+        for (const fileId of selectedItems) {
+          const file = files.find((f) => f.id === fileId);
+          if (file) {
+            deleteFile(file.path).catch((error) =>
+              console.error(`Failed to delete file '${file.name}':`, error)
+            );
+          }
+        }
+      }
     }
+    handleSync().catch((error) =>
+      console.error("Failed to sync after deletion:", error)
+    );
   };
 
   const openSelectedFolder = () => {

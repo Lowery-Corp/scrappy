@@ -41,3 +41,17 @@ export const uploadFile = async (file, file_path, onUploadProgress) => {
     throw error;
   }
 };
+
+export const deleteFile = async (file_path) => {
+  try {
+    const response = await api.delete("/api/v1/blob/delete", {
+      params: {
+        file_path: file_path,
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Error deleting file:", error);
+    throw error;
+  }
+};

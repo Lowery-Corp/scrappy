@@ -6,8 +6,12 @@ from schemas.user import AuthorizedUser
 
 from auth.dependencies import get_current_user
 from db.dependencies import get_session
-from repositories.filestore import sync_user_bucketstore, get_user_bucketstore, add_file_to_bucketstore
-from repositories.minio import upload_file_to_minio
+from repositories.filestore import (
+    sync_user_bucketstore,
+    get_user_bucketstore,
+    add_file_to_bucketstore,
+    delete_file_from_bucketstore,
+)
 
 router = APIRouter(tags=["blob"])
 
@@ -54,3 +58,14 @@ async def upload_file(
         "ok": True,
     }
 
+
+@router.delete("/delete")
+async def delete_file(
+    file_path: str,
+    current_user: AuthorizedUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session)
+) -> dict[str, Any]:
+    delete_status = await delete_file_from_bucketstore(user_id=current_user.id, file_path=file_path, session=session)
+    assert delete_status["ok"] == True, f"Failed to delete file from bucketstore: {delete_status}"
+
+    return {"ok": True}

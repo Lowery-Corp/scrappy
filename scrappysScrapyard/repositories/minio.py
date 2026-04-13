@@ -15,6 +15,7 @@ def get_minio_client() -> Minio:
         secure=settings.minio_secure,
     )
 
+
 async def get_bucket_structure(bucket_name: str) -> dict[str, Any]:
     minio_client = get_minio_client()
 
@@ -55,7 +56,7 @@ async def upload_file_to_minio(
     try:
         data_stream = BytesIO(file_data)
 
-        minio_client.put_object(
+        uploaded_file = minio_client.put_object(
             bucket_name,
             file_path,
             data_stream,
@@ -63,6 +64,10 @@ async def upload_file_to_minio(
         )
 
         return {
+            "uploaded_file": {
+                "object_name": uploaded_file.object_name,
+                "etag": uploaded_file.etag,
+            },
             "message": f"File '{file_path}' uploaded successfully to bucket '{bucket_name}'.",
             "ok": True,
         }
@@ -80,5 +85,18 @@ async def get_file_from_minio(bucket_name: str, file_path: str) -> dict[str, Any
         response.release_conn()
 
         return {"file_data": file_data, "ok": True}
+    except Exception as e:
+        return {"error": str(e), "ok": False}
+
+
+async def delete_file_from_minio(bucket_name: str, file_path: str) -> dict[str, Any]:
+    minio_client = get_minio_client()
+
+    try:
+        minio_client.remove_object(bucket_name, file_path)
+        return {
+            "message": f"File '{file_path}' deleted successfully from bucket '{bucket_name}'.",
+            "ok": True,
+        }
     except Exception as e:
         return {"error": str(e), "ok": False}

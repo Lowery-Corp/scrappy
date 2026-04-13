@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import String, Integer, DateTime, BigInteger, Text, Index
+from sqlalchemy import String, Integer, DateTime, BigInteger, Text, Index, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -14,7 +14,12 @@ class UserFile(Base):
         Index("ix_user_file_user_id", "user_id"),
         Index("ix_user_file_status", "status"),
         Index("ix_user_file_created_at", "created_at"),
-        {"schema": "app"},
+        UniqueConstraint(
+            "user_id",
+            "storage_key",
+            "status",
+            name="uq_user_file_user_id_storage_key_status",
+        ),        {"schema": "app"},
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
