@@ -11,6 +11,7 @@ from repositories.filestore import (
     get_user_bucketstore,
     add_file_to_bucketstore,
     delete_file_from_bucketstore,
+    delete_folder_from_bucketstore,
 )
 
 router = APIRouter(tags=["blob"])
@@ -67,5 +68,17 @@ async def delete_file(
 ) -> dict[str, Any]:
     delete_status = await delete_file_from_bucketstore(user_id=current_user.id, file_path=file_path, session=session)
     assert delete_status["ok"] == True, f"Failed to delete file from bucketstore: {delete_status}"
+
+    return {"ok": True}
+
+
+@router.delete("/bulk-delete")
+async def bulk_delete_files(
+    folder_path: str,
+    current_user: AuthorizedUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session)
+) -> dict[str, Any]:
+    delete_status = await delete_folder_from_bucketstore(user_id=current_user.id, file_path=folder_path, session=session, is_folder=True)
+    assert delete_status["ok"] == True, f"Failed to bulk delete files from bucketstore: {delete_status}"
 
     return {"ok": True}

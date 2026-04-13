@@ -5,7 +5,7 @@ from typing import Any
 
 from models.user_filestore import UserFileStore
 from models.user_file import UserFile
-from repositories.minio import get_bucket_structure, upload_file_to_minio, delete_file_from_minio
+from repositories.minio import get_bucket_structure, upload_file_to_minio, delete_path_from_minio
 
 
 async def create_user_bucketstore(user_id: int, bucket_name: str, session: AsyncSession) -> dict[str, str]:
@@ -33,7 +33,7 @@ async def sync_user_bucketstore(
     assert rowcount > 0, f"No UserFileStore found for user ID {user_id}"
 
     await session.commit()
-    return {"message": f"UserFileStore updated for user ID {user_id}"}
+    return {"message": f"UserFileStore updated for user ID {user_id}", "ok": True}
 
 
 async def get_user_bucketstore(user_id: str, session: AsyncSession) -> dict[str, Any]:
@@ -127,5 +127,33 @@ async def delete_file_from_bucketstore(user_id: str, file_path: str, session: As
     stmt = update(UserFile).where(UserFile.id == user_file.id).values(status="deleted")
     await session.execute(stmt)
     await session.commit()
+
+    return {"ok": True}
+
+
+async def delete_folder_from_bucketstore(user_id: str, file_path: str, session: AsyncSession, is_folder: bool = False) -> dict[str, Any]:
+    print(f"Deleting folder '{file_path}' for user ID {user_id} from bucketstore")
+
+    storage_key_prefix = f"home/{file_path.strip('/')}".replace("//", "/").lower()
+    if is_folder and not storage_key_prefix.endswith("/"):
+        storage_key_prefix += "/"
+
+    delete_file_from_minio_status = await delete_path_from_minio(
+        bucket_name=f"user-{user_id}-bucket",
+        path=storage_key_prefix,
+    )
+    assert delete_file_from_minio_status["ok"], f"Failed to delete folder from MinIO: {delete_file_from_minio_status}"
+    print(f"Deleted folder with storage key prefix '{storage_key_prefix}' from MinIO for user ID {user_id}", flush=True)
+
+    stmt = update(UserFile).where(
+        UserFile.user_id == user_id,
+        UserFile.storage_key.startswith(storage_key_prefix)
+    ).values(status="deleted")
+
+    await session.execute(stmt)
+    await session.commit()
+
+    sync_user_bucketstore_status = await sync_user_bucketstore(user_id=user_id, session=session)
+    assert sync_user_bucketstore_status["ok"], f"Failed to sync UserFileStore after folder deletion: {sync_user_bucketstore_status}"
 
     return {"ok": True}

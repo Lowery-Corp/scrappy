@@ -1,6 +1,7 @@
 from functools import lru_cache
 from io import BytesIO
 from minio import Minio
+from minio.deleteobjects import DeleteObject
 from typing import Any
 
 from core.config import settings
@@ -89,14 +90,51 @@ async def get_file_from_minio(bucket_name: str, file_path: str) -> dict[str, Any
         return {"error": str(e), "ok": False}
 
 
-async def delete_file_from_minio(bucket_name: str, file_path: str) -> dict[str, Any]:
+async def delete_path_from_minio(bucket_name: str, path: str) -> dict[str, Any]:
     minio_client = get_minio_client()
 
     try:
-        minio_client.remove_object(bucket_name, file_path)
+        normalized_path = path.strip()
+
+        if normalized_path.endswith("/"):
+            prefix = normalized_path.rstrip("/") + "/"
+
+            objects = minio_client.list_objects(
+                bucket_name,
+                prefix=prefix,
+                recursive=True,
+            )
+
+            delete_objects = [DeleteObject(obj.object_name) for obj in objects] # type: ignore
+
+            if not delete_objects:
+                return {
+                    "message": f"No objects found under folder '{prefix}' in bucket '{bucket_name}'.",
+                    "ok": True,
+                    "deleted_count": 0,
+                }
+
+            errors = list(minio_client.remove_objects(bucket_name, delete_objects))
+
+            if errors:
+                return {
+                    "message": f"Folder '{prefix}' partially deleted from bucket '{bucket_name}'.",
+                    "ok": False,
+                    "errors": [str(error) for error in errors],
+                }
+
+            return {
+                "message": f"Folder '{prefix}' deleted successfully from bucket '{bucket_name}'.",
+                "ok": True,
+                "deleted_count": len(delete_objects),
+            }
+
+        minio_client.remove_object(bucket_name, normalized_path)
         return {
-            "message": f"File '{file_path}' deleted successfully from bucket '{bucket_name}'.",
+            "message": f"File '{normalized_path}' deleted successfully from bucket '{bucket_name}'.",
             "ok": True,
+            "deleted_count": 1,
         }
+
     except Exception as e:
         return {"error": str(e), "ok": False}
