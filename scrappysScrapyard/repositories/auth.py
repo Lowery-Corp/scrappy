@@ -4,9 +4,11 @@ from typing import Any
 from httpxC.http_client import http_client
 from schemas.user import UserToken, AuthorizedUser
 from core.config import settings
+from core.retry import build_http_retry
 
+
+@build_http_retry(attempts=1)
 async def login_user(username: str, password: str) -> UserToken | bool:
-
     auth_endpoint: str = f"{settings.auth_api_url}/api/v1/auth/login"
     response = await http_client.post(
         auth_endpoint,
@@ -22,6 +24,7 @@ async def login_user(username: str, password: str) -> UserToken | bool:
     return user_token
 
 
+@build_http_retry(attempts=1)
 async def get_user_from_token(token: str) -> AuthorizedUser | None:
     auth_endpoint = f"{settings.auth_api_url}/api/v1/auth/me"
     headers = {"Authorization": f"Bearer {token}"}
