@@ -37,7 +37,7 @@ services:
       - ./scrappysScrapyard:/app
 
   postgres:
-    image: postgres:17
+    image: pgvector/pgvector:pg17
     ports:
       - "5432:5432"
     environment:
@@ -45,13 +45,14 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_MAIN_PASSWORD}
       POSTGRES_DB: ${POSTGRES_MAIN_DB}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_MAIN_USER} -d ${POSTGRES_MAIN_DB}"]
       interval: 5s
       timeout: 5s
       retries: 5
       start_period: 5s
     volumes:
       - postgres_data_scrappys_metadata:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d
     env_file:
       - .env
 
