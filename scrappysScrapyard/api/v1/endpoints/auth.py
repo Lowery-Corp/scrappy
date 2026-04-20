@@ -18,7 +18,7 @@ router = APIRouter(tags=["auth"])
 async def login_route(
     UserLogin: UserLogin,
     response: Response,
-) -> dict[str, str]:
+) -> dict[str, str | bool]:
     user_token: UserToken | bool = await login_user(
         UserLogin.email,
         UserLogin.password,
@@ -40,7 +40,10 @@ async def login_route(
         path="/",
     )
 
-    return {"message": "Successfully logged in"}
+    return {
+        "message": "Successfully logged in",
+        "ok": True
+    }
 
 
 @router.post("/logout")
@@ -75,17 +78,6 @@ async def get_current_user_route(
     return {
         "user": authorized_user,
     }
-
-
-# @router.get("/me")
-# async def get_current_user_route(
-#     current_user: AuthorizedUser = Depends(get_current_user)
-# ) -> dict[str, AuthorizedUser]:
-
-#     return {
-#         "user": current_user,
-#     }
-
 
 
 @router.post("/register")

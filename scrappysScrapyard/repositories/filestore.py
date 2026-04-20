@@ -19,7 +19,7 @@ async def create_user_bucketstore(user_id: int, bucket_name: str, session: Async
 async def sync_user_bucketstore(
     user_id: str,
     session: AsyncSession,
-) -> dict[str, str]:
+) -> dict[str, str | bool]:
 
     new_bucket_structure = await get_bucket_structure(bucket_name=f"user-{user_id}-bucket")
     stmt = (

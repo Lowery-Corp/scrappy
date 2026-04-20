@@ -46,6 +46,8 @@ async def upload_file(
     session: AsyncSession = Depends(get_session)
 ) -> dict[str, Any]:
 
+    print(current_user, flush=True)
+
     if not file.filename:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
