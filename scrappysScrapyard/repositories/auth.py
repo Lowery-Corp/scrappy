@@ -7,7 +7,7 @@ from core.config import settings
 from core.retry import build_http_retry
 
 
-@build_http_retry(attempts=1)
+@build_http_retry(attempts=2)
 async def login_user(username: str, password: str) -> UserToken | bool:
     auth_endpoint: str = f"{settings.auth_api_url}/api/v1/auth/login"
     response = await http_client.post(
@@ -24,7 +24,7 @@ async def login_user(username: str, password: str) -> UserToken | bool:
     return user_token
 
 
-@build_http_retry(attempts=1)
+@build_http_retry(attempts=2)
 async def get_user_from_token(token: str) -> AuthorizedUser | None:
     auth_endpoint = f"{settings.auth_api_url}/api/v1/auth/me"
     headers = {"Authorization": f"Bearer {token}"}
@@ -76,3 +76,17 @@ async def register_user(email: str, password: str) -> dict[str, Any]:
 
     return {"ok": False, "error": "User creation failed"}
 
+
+@build_http_retry(attempts=2)
+async def internal_api_login() -> str | None:
+    auth_endpoint: str = f"{settings.auth_api_url}/api/v1/auth/login"
+    try:
+        response = await http_client.post(
+            auth_endpoint,
+            json={"email": settings.internal_api_username, "password": settings.internal_api_password},
+        )
+        response.raise_for_status()
+        data = dict(response.json())
+        return data.get("token")
+    except HTTPError:
+        return None

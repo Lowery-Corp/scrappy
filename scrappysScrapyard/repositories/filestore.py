@@ -6,6 +6,7 @@ from typing import Any
 from models.user_filestore import UserFileStore
 from models.user_file import UserFile
 from repositories.minio import get_bucket_structure, upload_file_to_minio, delete_path_from_minio
+from repositories.offload_task import offload_file_injestion_task
 
 
 async def create_user_bucketstore(user_id: int, bucket_name: str, session: AsyncSession) -> dict[str, str]:
@@ -55,9 +56,6 @@ async def add_file_to_bucketstore(user_id: str, file_path: str, file: UploadFile
     parsed_file_path: str = f"""{file_path.strip("/")}/{file.filename}"""
     storage_key: str = f"home/{parsed_file_path}".replace("//", "/").lower()
 
-    if not file.filename:
-        return {"message": "Missing filename", "ok": False}
-
     upload_file = await upload_file_to_minio(
         bucket_name=bucket_name,
         file_path=storage_key,
@@ -71,32 +69,41 @@ async def add_file_to_bucketstore(user_id: str, file_path: str, file: UploadFile
     storage_key = upload_file["uploaded_file"]["object_name"]
 
     result = await session.execute(
-        select(UserFile).where(UserFile.user_id == user_id, UserFile.storage_key == storage_key)
+        select(UserFile).where(
+            UserFile.user_id == user_id,
+            UserFile.storage_key == storage_key,
+        )
     )
     user_file: UserFile | None = result.scalar_one_or_none()
 
     if user_file is not None:
-        if user_file.status == "deleted":
-            stmt = update(UserFile).where(UserFile.id == user_file.id).values(status="uploaded")
-            await session.execute(stmt)
-            await session.commit()
-            return {"message": f"File '{file.filename}' re-uploaded to UserFileStore for user ID {user_id}", "ok": True}
-        else:
-            return {"message": f"File '{file.filename}' already exists in UserFileStore for user ID {user_id}", "ok": False}
+        return {
+            "message": f"File '{file.filename}' already exists.",
+            "ok": False,
+        }
     else:
-        file_name: str = file.filename.lower()
+        file_name: str = str(file.filename).lower()
         mime_type: str | None = file.content_type if file.content_type else None
-        insert_stmt = insert(UserFile).values(
-            user_id=user_id,
-            original_filename=file_name,
-            storage_key=storage_key,
-            mime_type=mime_type,
-            file_size_bytes=file.size,
-            status="uploaded",
+
+        insert_stmt = (
+            insert(UserFile)
+            .values(
+                user_id=user_id,
+                original_filename=file_name,
+                storage_key=storage_key,
+                mime_type=mime_type,
+                file_size_bytes=file.size,
+                status="uploaded",
+            )
+            .returning(UserFile)
         )
 
-        await session.execute(insert_stmt)
+        user_file = (await session.execute(insert_stmt)).scalar_one()
         await session.commit()
+
+
+    offload_status = await offload_file_injestion_task(user_id=user_id, user_file=user_file)
+    assert offload_status["ok"], f"Failed to offload file ingestion task: {offload_status}"
 
     return {"message": f"File '{storage_key}' added to UserFileStore for user ID {user_id}", "ok": True}
 
@@ -111,9 +118,9 @@ async def delete_file_from_bucketstore(user_id: str, file_path: str, session: As
     print(f"Deleting file '{file_path}' for user ID {user_id} from bucketstore")
 
     storage_key = f"home/{file_path.strip('/')}".replace("//", "/")
-    delete_file_from_minio_status = await delete_file_from_minio(
+    delete_file_from_minio_status = await delete_path_from_minio(
         bucket_name=f"user-{user_id}-bucket",
-        file_path=storage_key,
+        path=storage_key,
     )
     assert delete_file_from_minio_status["ok"], f"Failed to delete file from MinIO: {delete_file_from_minio_status}"
 
@@ -124,7 +131,7 @@ async def delete_file_from_bucketstore(user_id: str, file_path: str, session: As
     if user_file is None:
         return {"message": f"No UserFile found for user ID {user_id} and file path '{storage_key}'", "ok": False}
 
-    stmt = update(UserFile).where(UserFile.id == user_file.id).values(status="deleted")
+    stmt = delete(UserFile).where(UserFile.id == user_file.id)
     await session.execute(stmt)
     await session.commit()
 
