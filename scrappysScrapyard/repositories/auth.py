@@ -76,3 +76,15 @@ async def register_user(email: str, password: str) -> dict[str, Any]:
 
     return {"ok": False, "error": "User creation failed"}
 
+
+@build_http_retry(attempts=2)
+async def internal_api_login() -> bool:
+    user_token: UserToken | bool = await login_user(
+        settings.internal_api_username,
+        settings.internal_api_password,
+    )
+    if type(user_token) is bool:
+        return user_token
+
+    settings.internal_cookie = user_token.token
+    return True
