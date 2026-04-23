@@ -1,8 +1,7 @@
 from core.config import settings
 from httpxC.http_client import http_client
 from models.user_file import UserFile
-from repositories.auth import login_user, internal_api_login
-from schemas.user import UserToken
+from repositories.auth import internal_api_login
 
 
 async def offload_file_injestion_task(
@@ -20,18 +19,6 @@ async def offload_file_injestion_task(
         auth_status = await internal_api_login()
         assert auth_status, "Failed to authenticate with internal API"
 
-    user_token: UserToken | bool = await login_user(
-        settings.internal_api_username,
-        settings.internal_api_password,
-    )
-
-    if type(user_token) is bool:
-        if user_token is False:
-            return {"message": "Invalid email or password"}
-        elif user_token is True:
-            return {"message": "There was an error logging in"}
-
-    settings.internal_cookie = user_token.token
     headers: dict[str, str] = {
         "Authorization": f"Bearer {settings.internal_cookie}"
     }
