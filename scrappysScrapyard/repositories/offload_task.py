@@ -34,5 +34,6 @@ async def offload_file_injestion_task(
         return await offload_file_injestion_task(user_id, user_file, refresh_internal_auth=True)
     assert job_creation_status.status_code == 200, f"Failed to create offload job: {job_creation_status.text}"
 
+    ret = job_creation_status.json()
 
-    return {"message": f"File ingestion task for user ID {user_id} offloaded to Celery", "ok": True}
+    return ret
