@@ -6,7 +6,7 @@ from typing import Any
 from models.user_filestore import UserFileStore
 from models.user_file import UserFile
 from repositories.minio import get_bucket_structure, upload_file_to_minio, delete_path_from_minio
-from repositories.offload_task import offload_file_injestion_task
+from repositories.offload_task import offload_file_ingestion_task
 
 
 async def create_user_bucketstore(user_id: int, bucket_name: str, session: AsyncSession) -> dict[str, str]:
@@ -29,7 +29,7 @@ async def sync_user_bucketstore(
     )
 
     result = await session.execute(stmt)
-    rowcount: int = int(result.rowcount or 0)
+    rowcount: int = int(result.rowcount) or 0
 
     assert rowcount > 0, f"No UserFileStore found for user ID {user_id}"
 
@@ -102,10 +102,13 @@ async def add_file_to_bucketstore(user_id: str, file_path: str, file: UploadFile
         await session.commit()
 
 
-    offload_status = await offload_file_injestion_task(user_id=user_id, user_file=user_file)
+    offload_status = await offload_file_ingestion_task(user_id=user_id, user_file=user_file, session=session)
     assert offload_status["ok"], f"Failed to offload file ingestion task: {offload_status}"
 
-    return {"message": f"File '{storage_key}' added to UserFileStore for user ID {user_id}", "ok": True}
+    return {
+        "ok": True,
+        "message": f"File '{storage_key}' added to UserFileStore for user ID {user_id}",
+    }
 
 
 async def download_file_from_bucketstore(user_id: str, file_path: str, session: AsyncSession) -> dict[str, Any]:
