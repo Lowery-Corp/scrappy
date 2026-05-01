@@ -173,7 +173,6 @@ scrappysScrapyard/
 ├── auth/
 ├── cache/
 ├── core/
-├── crud/
 ├── db/
 ├── httpxC/
 ├── middleware/
@@ -201,7 +200,6 @@ scrappysScrapyard/
 | `auth/` | Authentication dependencies used by endpoints and protected routes. |
 | `cache/` | Redis connection management, cache dependencies, and helper functions. |
 | `core/` | App configuration, retry utilities, and other cross-cutting core helpers. |
-| `crud/` | Placeholder or legacy location for CRUD operations. Current data access mostly lives in `repositories/`. |
 | `db/` | Database engine/session setup and FastAPI database dependencies. |
 | `httpxC/` | Shared HTTP client wrapper for outbound HTTP calls. |
 | `middleware/` | Custom request middleware, currently request ID handling. |
