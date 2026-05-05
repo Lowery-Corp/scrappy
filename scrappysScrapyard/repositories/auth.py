@@ -29,6 +29,7 @@ async def get_user_from_token(token: str) -> AuthorizedUser | None:
     auth_endpoint = f"{settings.auth_api_url}/api/v1/auth/me"
     headers = {"Authorization": f"Bearer {token}"}
 
+    print(f"Attempting to fetch user info with token: {token}", flush=True)
     try:
         response = await http_client.get(auth_endpoint, headers=headers)
 
