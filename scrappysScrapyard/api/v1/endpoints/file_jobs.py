@@ -3,7 +3,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from auth.dependencies import get_current_user
+from auth.dependencies import get_current_user, require_admin_user
 from db.dependencies import get_session
 from repositories.file_job import (
     create_file_job,
@@ -24,6 +24,8 @@ async def create_file_job_route(
     current_user: AuthorizedUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> FileJobRead:
+    require_admin_user(current_user)
+
     created_file_job = await create_file_job(
         user_id=current_user.id,
         file_job=file_job,
@@ -49,8 +51,10 @@ async def list_file_jobs_route(
     current_user: AuthorizedUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> list[FileJobRead]:
-    return await list_file_jobs(
-        user_id=current_user.id,
+
+    require_admin_user(current_user)
+
+    jobs = await list_file_jobs(
         session=session,
         file_id=file_id,
         status=job_status,
@@ -58,6 +62,7 @@ async def list_file_jobs_route(
         limit=limit,
         offset=offset,
     )
+    return jobs
 
 
 @router.get("/{job_id}", response_model=FileJobRead)
@@ -66,6 +71,9 @@ async def get_file_job_route(
     current_user: AuthorizedUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> FileJobRead:
+
+    require_admin_user(current_user)
+
     file_job = await get_file_job(
         user_id=current_user.id,
         job_id=job_id,
@@ -88,6 +96,8 @@ async def update_file_job_route(
     current_user: AuthorizedUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> FileJobRead:
+    require_admin_user(current_user)
+
     updated_file_job = await update_file_job(
         user_id=current_user.id,
         job_id=job_id,
@@ -110,6 +120,8 @@ async def delete_file_job_route(
     current_user: AuthorizedUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, bool]:
+    require_admin_user(current_user)
+
     deleted = await delete_file_job(
         user_id=current_user.id,
         job_id=job_id,

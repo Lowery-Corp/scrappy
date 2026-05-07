@@ -5,15 +5,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.file_job import FileJob
 from models.user_file import UserFile
-from schemas.file_job import FileJobCreate, FileJobUpdate
+from schemas.file_job import FileJobCreate, FileJobUpdate, FileJobRead
 
 
-def _user_scoped_file_job_query(user_id: str):
-    return (
-        select(FileJob)
-        .join(UserFile, FileJob.file_id == UserFile.id)
-        .where(UserFile.user_id == user_id)
-    )
+def _user_scoped_file_job_query(user_id: str | None = None):
+    stmt = select(FileJob).join(UserFile, FileJob.file_id == UserFile.id)
+
+    if user_id:
+        stmt = stmt.where(UserFile.user_id == user_id)
+
+    return stmt
 
 
 async def create_file_job(
@@ -47,14 +48,14 @@ async def create_file_job(
 
 
 async def list_file_jobs(
-    user_id: str,
     session: AsyncSession,
+    user_id: str | None = None,
     file_id: int | None = None,
     status: str | None = None,
     job_type: str | None = None,
     limit: int = 50,
     offset: int = 0,
-) -> list[FileJob]:
+) -> list[FileJobRead]:
     stmt = _user_scoped_file_job_query(user_id)
 
     if file_id is not None:
@@ -67,7 +68,10 @@ async def list_file_jobs(
     stmt = stmt.order_by(FileJob.created_at.desc()).limit(limit).offset(offset)
 
     result = await session.scalars(stmt)
-    return list(result.all())
+
+    file_job_reads = [FileJobRead.model_validate(file_job) for file_job in result]
+
+    return file_job_reads
 
 
 async def get_file_job(
@@ -128,4 +132,3 @@ async def delete_file_job(
     await session.commit()
 
     return True
-

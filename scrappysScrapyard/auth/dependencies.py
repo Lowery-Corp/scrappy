@@ -5,6 +5,14 @@ from repositories.auth import (
 )
 from schemas.user import AuthorizedUser
 
+def require_admin_user(current_user: AuthorizedUser) -> None:
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden",
+        )
+
+
 async def get_current_user(
     access_token: str | None = Cookie(default=None),
 ) -> AuthorizedUser:
