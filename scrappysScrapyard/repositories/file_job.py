@@ -9,7 +9,7 @@ from schemas.file_job import FileJobCreate, FileJobUpdate, FileJobRead
 
 
 def _user_scoped_file_job_query(user_id: str | None = None):
-    stmt = select(FileJob).join(UserFile, FileJob.file_id == UserFile.id)
+    stmt = select(FileJob).join(UserFile, FileJob.file_id == UserFile.file_id)
 
     if user_id:
         stmt = stmt.where(UserFile.user_id == user_id)
@@ -50,7 +50,7 @@ async def create_file_job(
 async def list_file_jobs(
     session: AsyncSession,
     user_id: str | None = None,
-    file_id: int | None = None,
+    file_id: uuid.UUID | None = None,
     status: str | None = None,
     job_type: str | None = None,
     limit: int = 50,

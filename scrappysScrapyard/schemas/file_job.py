@@ -29,7 +29,7 @@ class FileJobRead(BaseModel):
 
     id: int
     job_id: uuid.UUID
-    file_id: int
+    file_id: uuid.UUID
     job_type: str
     status: str
     attempt_count: int

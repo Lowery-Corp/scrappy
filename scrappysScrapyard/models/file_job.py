@@ -32,8 +32,8 @@ class FileJob(Base):
         default=uuid.uuid4,
         unique=True,
     )
-    file_id: Mapped[int] = mapped_column(
-        ForeignKey("app.user_file.id", ondelete="CASCADE"),
+    file_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("app.user_file.file_id", ondelete="CASCADE"),
         nullable=False,
     )
     job_type: Mapped[str] = mapped_column(

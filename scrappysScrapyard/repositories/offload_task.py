@@ -19,7 +19,7 @@ async def offload_file_ingestion_task(
 
     file_job_id = await session.scalar(
         insert(FileJob).values(
-            file_id=user_file.id,
+            file_id=user_file.file_id,
             job_type="ingest",
         ).returning(FileJob.id)
     )
