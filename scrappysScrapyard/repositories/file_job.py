@@ -24,7 +24,7 @@ async def create_file_job(
 ) -> FileJob | None:
     user_file = await session.scalar(
         select(UserFile).where(
-            UserFile.id == file_job.file_id,
+            UserFile.file_id == file_job.file_id,
             UserFile.user_id == user_id,
         )
     )
@@ -75,7 +75,7 @@ async def list_file_jobs(
 
 
 async def get_file_job(
-    user_id: str,
+    user_id: str | None,
     job_id: uuid.UUID,
     session: AsyncSession,
 ) -> FileJob | None:
@@ -91,7 +91,7 @@ async def update_file_job(
     session: AsyncSession,
 ) -> FileJob | None:
     existing_file_job = await get_file_job(
-        user_id=user_id,
+        user_id=None,
         job_id=job_id,
         session=session,
     )
@@ -105,7 +105,7 @@ async def update_file_job(
 
     updated_file_job = await session.scalar(
         update(FileJob)
-        .where(FileJob.id == existing_file_job.id)
+        .where(FileJob.file_id == existing_file_job.file_id)
         .values(**update_values)
         .returning(FileJob)
     )

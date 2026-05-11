@@ -1,3 +1,5 @@
+import uuid
+from datetime import datetime
 from fastapi import UploadFile
 from sqlalchemy import update, select, insert, delete
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -5,8 +7,10 @@ from typing import Any
 
 from models.user_filestore import UserFileStore
 from models.user_file import UserFile
+from schemas.file_job import FileJobCreate, FileJobUpdate
 from repositories.minio import get_bucket_structure, upload_file_to_minio, delete_path_from_minio
-from repositories.offload_task import offload_file_ingestion_task
+from repositories.file_job import create_file_job, update_file_job
+from repositories.task_queue import enqueue_file_ingestion_task
 
 
 async def create_user_bucketstore(user_id: int, bucket_name: str, session: AsyncSession) -> dict[str, str]:
@@ -101,9 +105,49 @@ async def add_file_to_bucketstore(user_id: str, file_path: str, file: UploadFile
         user_file = (await session.execute(insert_stmt)).scalar_one()
         await session.commit()
 
+    new_file_job = FileJobCreate(
+        file_id=user_file.file_id,
+        job_type="ingest",
+        max_attempts=3,
+    )
 
-    offload_status = await offload_file_ingestion_task(user_id=user_id, user_file=user_file, session=session)
-    assert offload_status["ok"], f"Failed to offload file ingestion task: {offload_status}"
+    new_file_job = await create_file_job(
+        user_id=user_id,
+        file_job=new_file_job,
+        session=session,
+    )
+    assert new_file_job is not None, f"Failed to create file job for file ID {user_file.file_id} and user ID {user_id}"
+
+    newely_enqueued_task = None
+
+    try:
+        newely_enqueued_task = await enqueue_file_ingestion_task(
+            file_id=user_file.file_id,
+            storage_key=storage_key,
+            user_id=uuid.UUID(user_id),
+            file_job_id=new_file_job.job_id if new_file_job else None,
+        )
+    except Exception as exc:
+        print(f"Failed to enqueue file ingestion task for file ID {user_file.file_id} and user ID {user_id}: {exc}", flush=True)
+
+    if newely_enqueued_task is None:
+        return {"message": f"Failed to enqueue file ingestion task for file ID {user_file.file_id} and user ID {user_id}", "ok": False}
+
+    queued_at = datetime.now()
+    updated_file_job = await update_file_job(
+        user_id=user_id,
+        job_id=new_file_job.job_id,
+        file_job_update=FileJobUpdate(
+            status="queued",
+            queued_at=queued_at,
+            queue_name=newely_enqueued_task.queue_name,
+            started_at=queued_at,
+            worker_id=newely_enqueued_task.celery_task_id,
+        ),
+        session=session,
+    )
+    if updated_file_job is None:
+        return {"message": f"Failed to update file job status to 'queued' for file ID {user_file.file_id} and user ID {user_id}", "ok": False}
 
     return {
         "ok": True,

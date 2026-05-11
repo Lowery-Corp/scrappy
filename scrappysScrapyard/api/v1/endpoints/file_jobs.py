@@ -98,6 +98,7 @@ async def update_file_job_route(
 ) -> FileJobRead:
     require_admin_user(current_user)
 
+    print("Updating file job", job_id, file_job_update)
     updated_file_job = await update_file_job(
         user_id=current_user.id,
         job_id=job_id,

@@ -11,7 +11,10 @@ class Settings(BaseSettings):
     minio_secure: bool
     internal_api_username: str
     internal_api_password: str
-
+    celery_broker_url: str
+    celery_result_backend: str
+    rabbitmq_default_user: str
+    rabbitmq_default_pass: str
 
     internal_cookie: str | None = None
 

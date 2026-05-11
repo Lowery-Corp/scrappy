@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict
 
 
 class FileJobCreate(BaseModel):
-    file_id: int
+    file_id: uuid.UUID
     job_type: str = "ingest"
     max_attempts: int = 3
     queue_name: str | None = None
