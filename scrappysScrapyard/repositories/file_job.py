@@ -55,6 +55,7 @@ async def list_file_jobs(
     job_type: str | None = None,
     limit: int = 50,
     offset: int = 0,
+    queued_at: int | None = None,
 ) -> list[FileJobRead]:
     stmt = _user_scoped_file_job_query(user_id)
 
@@ -64,6 +65,8 @@ async def list_file_jobs(
         stmt = stmt.where(FileJob.status == status)
     if job_type is not None:
         stmt = stmt.where(FileJob.job_type == job_type)
+    if queued_at is not None:
+        stmt = stmt.where(FileJob.created_at < queued_at)
 
     stmt = stmt.order_by(FileJob.created_at.desc()).limit(limit).offset(offset)
 

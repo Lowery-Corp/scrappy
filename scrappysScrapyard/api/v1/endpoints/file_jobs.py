@@ -43,7 +43,8 @@ async def create_file_job_route(
 
 @router.get("", response_model=list[FileJobRead])
 async def list_file_jobs_route(
-    file_id: int | None = None,
+    file_id: uuid.UUID | None = None,
+    queued_at: int | None = Query(default=None, alias="queued_at"),
     job_status: str | None = Query(default=None, alias="status"),
     job_type: str | None = None,
     limit: int = Query(default=50, ge=1, le=100),
@@ -61,6 +62,7 @@ async def list_file_jobs_route(
         job_type=job_type,
         limit=limit,
         offset=offset,
+        queued_at=queued_at,
     )
     return jobs
 
