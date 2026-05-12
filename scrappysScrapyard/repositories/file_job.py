@@ -87,7 +87,8 @@ async def list_file_jobs(
                 raise ValueError("user_file_id is required when add_file_data=True")
 
             user_bucket = f"user-{user_file_id}-bucket"
-            file_job_read.storage_key = f"{user_bucket}/{storage_key}"
+            file_job_read.bucket_name = user_bucket
+            file_job_read.storage_key = storage_key
 
 
         file_job_reads.append(file_job_read)

@@ -35,6 +35,7 @@ class FileJobRead(BaseModel):
     attempt_count: int
     max_attempts: int
     storage_key: str | None = None
+    bucket_name: str | None = None
     queue_name: str | None
     worker_id: str | None
     error_message: str | None
