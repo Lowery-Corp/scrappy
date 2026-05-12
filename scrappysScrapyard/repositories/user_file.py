@@ -53,11 +53,11 @@ async def list_user_files(
 
 
 async def get_user_file(
-    user_file_id: int,
+    user_file_id: uuid.UUID,
     session: AsyncSession,
 ) -> UserFile | None:
     return await session.scalar(
-        select(UserFile).where(UserFile.id == user_file_id)
+        select(UserFile).where(UserFile.file_id == user_file_id)
     )
 
 

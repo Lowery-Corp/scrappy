@@ -49,6 +49,7 @@ async def list_file_jobs_route(
     job_type: str | None = None,
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
+    add_file_data: bool = False,
     current_user: AuthorizedUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> list[FileJobRead]:
@@ -63,6 +64,7 @@ async def list_file_jobs_route(
         limit=limit,
         offset=offset,
         queued_at=queued_at,
+        add_file_data=add_file_data,
     )
     return jobs
 

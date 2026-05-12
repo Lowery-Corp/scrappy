@@ -9,7 +9,10 @@ from schemas.file_job import FileJobCreate, FileJobUpdate, FileJobRead
 
 
 def _user_scoped_file_job_query(user_id: str | None = None):
-    stmt = select(FileJob).join(UserFile, FileJob.file_id == UserFile.file_id)
+    stmt = (
+        select(FileJob, UserFile.storage_key, UserFile.user_id)
+        .join(UserFile, FileJob.file_id == UserFile.file_id)
+    )
 
     if user_id:
         stmt = stmt.where(UserFile.user_id == user_id)
@@ -56,6 +59,7 @@ async def list_file_jobs(
     limit: int = 50,
     offset: int = 0,
     queued_at: int | None = None,
+    add_file_data: bool = False,
 ) -> list[FileJobRead]:
     stmt = _user_scoped_file_job_query(user_id)
 
@@ -70,9 +74,23 @@ async def list_file_jobs(
 
     stmt = stmt.order_by(FileJob.created_at.desc()).limit(limit).offset(offset)
 
-    result = await session.scalars(stmt)
+    result = await session.execute(stmt)
+    rows = result.all()
 
-    file_job_reads = [FileJobRead.model_validate(file_job) for file_job in result]
+    file_job_reads: list[FileJobRead] = []
+
+    for file_job, storage_key, user_file_id in rows:
+        file_job_read = FileJobRead.model_validate(file_job)
+
+        if add_file_data:
+            if user_file_id is None:
+                raise ValueError("user_file_id is required when add_file_data=True")
+
+            user_bucket = f"user-{user_file_id}-bucket"
+            file_job_read.storage_key = f"{user_bucket}/{storage_key}"
+
+
+        file_job_reads.append(file_job_read)
 
     return file_job_reads
 

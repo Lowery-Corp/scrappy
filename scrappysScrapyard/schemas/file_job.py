@@ -34,6 +34,7 @@ class FileJobRead(BaseModel):
     status: str
     attempt_count: int
     max_attempts: int
+    storage_key: str | None = None
     queue_name: str | None
     worker_id: str | None
     error_message: str | None
