@@ -7,7 +7,6 @@ from sqlalchemy import (
     Index,
 )
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy.dialects.postgresql import UUID
 from pgvector.sqlalchemy import Vector
 
 from db.base import Base
@@ -18,16 +17,20 @@ class FileChunk(Base):
     __table_args__ = (
         Index("ix_file_chunk_file_id", "file_id"),
         Index("ix_file_chunk_embedding_status", "embedding_status"),
+        Index(
+            "uq_file_chunk_file_id_chunk_index",
+            "file_id",
+            "chunk_index",
+            unique=True,
+        ),
         {"schema": "app"},
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
     file_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        ForeignKey("app.user_file.file_id", ondelete="CASCADE"),
         nullable=False,
-        default=uuid.uuid4,
-        unique=True,
     )
 
     chunk_index: Mapped[int] = mapped_column(Integer, nullable=False)

@@ -54,7 +54,7 @@ class FileJob(Base):
     # "pending"
     # "queued"
     # "running"
-    # "completed"
+    # "chunked"
     # "failed"
     # "cancelled"
     attempt_count: Mapped[int] = mapped_column(
