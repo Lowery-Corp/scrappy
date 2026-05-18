@@ -11,6 +11,7 @@ import About from "./pages/About";
 import FileStore from "./pages/FileStore";
 import NotFound from "./pages/NotFound";
 import Unauthorized from "./pages/Unauthorized";
+import DocumentChat from "./pages/DocumentChat";
 
 export default function App() {
   const { user, logout, isAuthenticated, authLoading} = useAuth();
@@ -65,6 +66,12 @@ export default function App() {
                     className="text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 px-3 py-2 rounded-md text-sm font-medium transition-colors"
                   >
                     File Store
+                  </Link>
+                  <Link
+                    to="/document-chat"
+                    className="text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                  >
+                    Chat
                   </Link>
                   {user?.permissions?.includes("read:admin") && (
                     <Link
@@ -133,6 +140,7 @@ export default function App() {
             <Route path="/" element={<Home />} />
             <Route path="/home" element={<Home />} />
             <Route path="/store" element={<FileStore />} />
+            <Route path="/document-chat" element={<DocumentChat />} />
           </Route>
 
           <Route path="*" element={<NotFound />} />
