@@ -1,99 +1,89 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useAuth } from "../auth/AuthProvider";
+import { getUserConversations } from "../services/user_conversations";
 import ChatComposer from "../components/documentChat/ChatComposer";
 import ChatPanelHeader from "../components/documentChat/ChatPanelHeader";
 import ChatSidebar from "../components/documentChat/ChatSidebar";
 import ChatThread from "../components/documentChat/ChatThread";
 
-const chats = [
-  {
-    id: "policy-review",
-    title: "Policy Review",
-    documentCount: 4,
-    updatedAt: "Today",
-    preview: "Summarize the retention policy changes.",
-  },
-  {
-    id: "q4-reports",
-    title: "Q4 Reports",
-    documentCount: 7,
-    updatedAt: "Yesterday",
-    preview: "Compare revenue notes across the uploaded PDFs.",
-  },
-  {
-    id: "onboarding-docs",
-    title: "Onboarding Docs",
-    documentCount: 3,
-    updatedAt: "May 14",
-    preview: "Find the checklist for new engineering hires.",
-  },
-];
-
-const chatMessages = {
-  "policy-review": [
-    {
-      id: 1,
-      role: "assistant",
-      content:
-        "Upload or select documents for this chat, then ask a focused question. I will answer using the retrieved document context.",
-      sources: ["Getting started"],
-    },
-    {
-      id: 2,
-      role: "user",
-      content: "What changed in the latest retention policy draft?",
-    },
-    {
-      id: 3,
-      role: "assistant",
-      content:
-        "The draft extends default retention for archived project records, adds a legal-hold exception, and clarifies who can approve early deletion requests.",
-      sources: ["retention-policy-v3.pdf", "legal-hold-addendum.docx"],
-    },
-  ],
-  "q4-reports": [
-    {
-      id: 1,
-      role: "assistant",
-      content:
-        "I found several uploaded quarterly reports. Ask for a summary, comparison, or a specific citation across those files.",
-      sources: ["q4-board-pack.pdf", "finance-summary.xlsx"],
-    },
-  ],
-  "onboarding-docs": [
-    {
-      id: 1,
-      role: "assistant",
-      content:
-        "This chat is ready to answer questions from the onboarding document set.",
-      sources: ["engineering-onboarding.pdf"],
-    },
-  ],
-};
-
 export default function DocumentChat() {
   const { user } = useAuth();
-  const [activeChatId, setActiveChatId] = useState(chats[0].id);
+
+  const [userChats, setUserChats] = useState([]);
+  const [activeChatId, setActiveChatId] = useState(null);
   const [draftMessage, setDraftMessage] = useState("");
+  const [messages, setMessages] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const activeChat = useMemo(
-    () => chats.find((chat) => chat.id === activeChatId) ?? chats[0],
-    [activeChatId]
-  );
+  const loadUserConversations = async () => {
+    try {
+      setIsLoading(true);
 
-  const messages = chatMessages[activeChat.id] ?? [];
+      const conversations = await getUserConversations();
+      console.log("Loaded user conversations:", conversations);
+
+      const safeConversations = Array.isArray(conversations)
+        ? conversations
+        : [];
+
+      setUserChats(safeConversations);
+
+      setActiveChatId((currentActiveChatId) => {
+        if (currentActiveChatId) {
+          const stillExists = safeConversations.some(
+            (chat) => chat.conversation_id === currentActiveChatId
+          );
+
+          if (stillExists) {
+            return currentActiveChatId;
+          }
+        }
+
+        return safeConversations.length > 0
+          ? safeConversations[0].conversation_id
+          : null;
+      });
+    } catch (error) {
+      console.error("Failed to load user conversations:", error);
+      setUserChats([]);
+      setActiveChatId(null);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadUserConversations();
+  }, []);
+
+  const handleChatSync = async () => {
+    await loadUserConversations();
+  };
+
+  const activeChat = useMemo(() => {
+    if (userChats.length === 0) {
+      return null;
+    }
+
+    return (
+      userChats.find((chat) => chat.conversation_id === activeChatId) ??
+      userChats[0]
+    );
+  }, [userChats, activeChatId]);
 
   const handleSubmit = (event) => {
     event.preventDefault();
     setDraftMessage("");
   };
 
+  console.log("Rendering DocumentChat with activeChat:", activeChat);
+
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
       <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-7xl flex-col gap-4 px-4 py-6 lg:flex-row lg:gap-6 lg:py-8">
         <ChatSidebar
-          chats={chats}
-          activeChatId={activeChat.id}
+          chats={userChats}
+          activeChatId={activeChat?.conversation_id ?? null}
           onSelectChat={setActiveChatId}
         />
 
@@ -103,6 +93,7 @@ export default function DocumentChat() {
             messages={messages}
             username={user?.username ?? "your account"}
           />
+
           <ChatComposer
             value={draftMessage}
             onChange={setDraftMessage}

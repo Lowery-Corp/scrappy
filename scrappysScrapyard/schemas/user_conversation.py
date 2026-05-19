@@ -1,5 +1,5 @@
 import uuid
-
+from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 
 from schemas.conversation_message import ConversationMessageRead
@@ -11,13 +11,14 @@ class UserConversationCreate(BaseModel):
     conversation_id: uuid.UUID | None = None
     relevant_file_ids: list[uuid.UUID] | None = None
 
+
 class UserConversationRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     user_id: uuid.UUID
     conversation_id: uuid.UUID
     conversation_name: str
-
     conversation_messages: list[ConversationMessageRead] = []
+    relevant_file_ids: list[uuid.UUID] = []
 
-    relevant_file_ids: list[uuid.UUID] | None
+    updated_at: datetime

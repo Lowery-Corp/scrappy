@@ -36,7 +36,7 @@ export default function ChatSidebar({ chats, activeChatId, onSelectChat }) {
           return (
             <button
               type="button"
-              key={chat.id}
+              key={chat.conversation_name}
               onClick={() => onSelectChat(chat.id)}
               className={`min-w-72 rounded-xl border p-4 text-left transition-colors lg:min-w-0 ${
                 isActive
@@ -46,17 +46,17 @@ export default function ChatSidebar({ chats, activeChatId, onSelectChat }) {
             >
               <div className="flex items-start justify-between gap-3">
                 <h2 className="m-0 text-base font-semibold text-gray-900 dark:text-white">
-                  {chat.title}
+                  {chat.conversation_name}
                 </h2>
                 <span className="shrink-0 text-xs text-gray-500 dark:text-gray-400">
-                  {chat.updatedAt}
+                  {chat.updated_at}
                 </span>
               </div>
               <p className="mt-2 overflow-hidden text-ellipsis whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
                 {chat.preview}
               </p>
               <div className="mt-3 inline-flex rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-300">
-                {chat.documentCount} documents
+                {chat.relevant_file_ids.length} documents
               </div>
             </button>
           );

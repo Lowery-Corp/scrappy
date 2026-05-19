@@ -12,10 +12,10 @@ from repositories.user_conversation import (
     insert_user_conversation,
 )
 
-router = APIRouter(tags=["user_conversations"])
+router = APIRouter(tags=["conversations"])
 
 
-@router.get("/")
+@router.get("")
 async def fetch_user_conversation(
     current_user: AuthorizedUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_session)
@@ -27,10 +27,10 @@ async def fetch_user_conversation(
 
     print(user_conversations)
 
-    return {"ok": True}
+    return {"ok": True, "data": user_conversations}
 
 
-@router.post("/")
+@router.post("")
 async def create_user_conversation(
     session: AsyncSession = Depends(get_session),
     current_user: AuthorizedUser = Depends(get_current_user)
