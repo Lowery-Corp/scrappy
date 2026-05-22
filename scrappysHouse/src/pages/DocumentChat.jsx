@@ -78,6 +78,45 @@ export default function DocumentChat() {
 
   console.log("Rendering DocumentChat with activeChat:", activeChat);
 
+  const newChat = () => {
+    console.log("New chat button clicked");
+    if (!user) {
+      console.warn("No user found, cannot create new chat");
+      return;
+    }
+
+    for (const chat of userChats) {
+      if (chat.conversation_name === "New Chat" && chat.preview === "") {
+        return;
+      }
+    }
+
+    userChats.unshift({
+      conversation_id: `temp-${Date.now()}`,
+      conversation_name: "New Chat",
+      preview: "",
+      relevant_file_ids: [],
+      updated_at: new Date().toISOString(),
+    });
+    setUserChats([...userChats]);
+    setActiveChatId(userChats[0].conversation_id);
+    return true;
+  }
+
+  const deleteChat = (conversationId) => {
+    console.log("Delete chat with ID:", conversationId);
+    const index = userChats.findIndex(
+      (chat) => chat.conversation_id === conversationId
+    );
+    if (index !== -1) {
+      userChats.splice(index, 1);
+      setUserChats([...userChats]);
+      if (activeChatId === conversationId) {
+        setActiveChatId(userChats.length > 0 ? userChats[0].conversation_id : null);
+      }
+    }
+  };
+
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
       <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-7xl flex-col gap-4 px-4 py-6 lg:flex-row lg:gap-6 lg:py-8">
@@ -85,6 +124,8 @@ export default function DocumentChat() {
           chats={userChats}
           activeChatId={activeChat?.conversation_id ?? null}
           onSelectChat={setActiveChatId}
+          newChat={newChat}
+          deleteChat={deleteChat}
         />
 
         <section className="flex min-h-[680px] flex-1 flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white/90 shadow-xl dark:border-gray-700 dark:bg-gray-800/90">
