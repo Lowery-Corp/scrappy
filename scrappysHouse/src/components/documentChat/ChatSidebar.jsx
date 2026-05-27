@@ -4,12 +4,12 @@ export default function ChatSidebar({
   onSelectChat,
   newChat,
   deleteChat,
+  multiSelectMode,
+  setMultiSelectMode,
+  multipleSelectedChatIds,
+  setMultipleSelectedChatIds,
 }) {
   const userChats = Array.isArray(chats) ? chats : [];
-
-  // Placeholder values. Replace with your actual state.
-  const isMultiSelectMode = false;
-  const selectedChatIds = [];
 
   return (
     <aside className="flex w-full flex-col rounded-2xl border border-gray-200 bg-white/90 shadow-xl dark:border-gray-700 dark:bg-gray-800/90 lg:w-80">
@@ -49,12 +49,16 @@ export default function ChatSidebar({
             className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
             onClick={() => {
               // toggle multi-select mode
+              setMultiSelectMode(!multiSelectMode);
+              if (multiSelectMode) {
+                setMultipleSelectedChatIds([]);
+              }
             }}
           >
-            {isMultiSelectMode ? "Cancel" : "Select"}
+            {multiSelectMode ? "Cancel" : "Select"}
           </button>
 
-          {isMultiSelectMode && (
+          {multiSelectMode && (
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -68,15 +72,18 @@ export default function ChatSidebar({
 
               <button
                 type="button"
-                disabled={selectedChatIds.length === 0}
+                disabled={multipleSelectedChatIds.length === 0}
                 className="rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-red-300 dark:disabled:bg-red-900"
                 onClick={() => {
                   // delete selected chats
+                  if (multipleSelectedChatIds.length === 0) return;
+                  deleteChat(multipleSelectedChatIds);
+                  setMultipleSelectedChatIds([]);
                 }}
               >
                 Delete
-                {selectedChatIds.length > 0
-                  ? ` (${selectedChatIds.length})`
+                {multipleSelectedChatIds.length > 0
+                  ? ` (${multipleSelectedChatIds.length})`
                   : ""}
               </button>
             </div>
@@ -94,7 +101,7 @@ export default function ChatSidebar({
           const chatId = chat.conversation_id;
 
           // Placeholder. Replace with your actual selected state.
-          const isSelected = selectedChatIds.includes(chatId);
+          const isSelected = multipleSelectedChatIds.includes(chatId);
 
           return (
             <div
@@ -110,7 +117,7 @@ export default function ChatSidebar({
               }`}
             >
               <div className="flex items-start gap-3">
-                {isMultiSelectMode && (
+                {multiSelectMode && (
                   <input
                     type="checkbox"
                     checked={isSelected}
@@ -148,11 +155,11 @@ export default function ChatSidebar({
                   {relevantFilesCount} documents
                 </div>
 
-                {!isMultiSelectMode && (
+                {!multiSelectMode && (
                   <button
                     type="button"
                     className="rounded-md px-2 py-1 text-xs font-medium text-red-600 opacity-100 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40 lg:opacity-0 lg:group-hover:opacity-100"
-                    onClick={() => deleteChat(chatId)}
+                    onClick={() => deleteChat([chatId])}
                     aria-label={`Delete ${chatName}`}
                   >
                     Delete

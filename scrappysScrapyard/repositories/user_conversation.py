@@ -1,71 +1,309 @@
 import uuid
-from datetime import datetime
-from sqlalchemy import update, select, insert, delete
+
+from sqlalchemy import delete, insert, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from models.user_conversation import UserConversation
 from models.conversation_message import ConversationMessage
-from schemas.user_conversation import UserConversationCreate, UserConversationRead
-from schemas.conversation_message import ConversationMessageCreate, ConversationMessageRead
+from models.user_conversation import UserConversation
+from schemas.conversation_message import (
+    ConversationMessageCreate,
+    ConversationMessageRead,
+    ConversationMessageUpdate,
+)
+from schemas.user_conversation import (
+    UserConversationCreate,
+    UserConversationRead,
+    UserConversationUpdate,
+)
 
 
-async def insert_user_conversation(
-    user_id: uuid.UUID,
-    session: AsyncSession
+async def _conversation_read(
+    user_conversation: UserConversation,
+    session: AsyncSession,
+    include_messages: bool = False,
 ) -> UserConversationRead:
+    conversation_read = UserConversationRead.model_validate(user_conversation)
 
-    new_user_conversation = UserConversation(
-        user_id=user_id,
-        title=f"Conversation {datetime.utcnow().isoformat()}",
-    )
+    if include_messages:
+        conversation_read.conversation_messages = await list_conversation_messages(
+            user_id=user_conversation.user_id,
+            conversation_id=user_conversation.conversation_id,
+            session=session,
+        )
 
-    get_user_conversation_result = UserConversationRead.model_validate(
-        new_user_conversation
-    )
-
-    return get_user_conversation_result
+    return conversation_read
 
 
-async def select_user_conversations(
+async def create_user_conversation(
+    user_id: uuid.UUID,
+    user_conversation: UserConversationCreate,
+    session: AsyncSession,
+) -> UserConversationRead | None:
+    create_values = user_conversation.model_dump(exclude_none=True)
+    create_values["user_id"] = user_id
+
+    try:
+        created_user_conversation = await session.scalar(
+            insert(UserConversation)
+            .values(**create_values)
+            .returning(UserConversation)
+        )
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        return None
+
+    if created_user_conversation is None:
+        return None
+
+    return await _conversation_read(created_user_conversation, session=session)
+
+
+async def list_user_conversations(
     user_id: uuid.UUID,
     session: AsyncSession,
-    user_conversation_id: uuid.UUID | None = None,
+    get_messages: bool = False,
+    limit: int = 50,
+    offset: int = 0,
 ) -> list[UserConversationRead]:
+    result = await session.scalars(
+        select(UserConversation)
+        .where(UserConversation.user_id == user_id)
+        .order_by(UserConversation.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
 
-    user_conversation_result = None
-
-    if not user_conversation_id:
-        user_conversation_result = await session.execute(
-            select(UserConversation)
-            .where(UserConversation.user_id == user_id)
-            .order_by(UserConversation.created_at.desc()
-            )
+    return [
+        await _conversation_read(
+            user_conversation,
+            session=session,
+            include_messages=get_messages,
         )
-    else:
-        user_conversation_result = await session.execute(
-            select(UserConversation)
-                .where(
-                    UserConversation.user_id == user_id,
-                    UserConversation.id == user_conversation_id,
-                ).order_by(UserConversation.created_at.desc()
-            )
+        for user_conversation in result
+    ]
+
+
+async def get_user_conversation(
+    user_id: uuid.UUID,
+    conversation_id: uuid.UUID,
+    session: AsyncSession,
+    get_messages: bool = False,
+) -> UserConversationRead | None:
+    user_conversation = await session.scalar(
+        select(UserConversation).where(
+            UserConversation.user_id == user_id,
+            UserConversation.conversation_id == conversation_id,
         )
+    )
 
-    ret: list[UserConversationRead] = []
-    for uc in user_conversation_result.scalars().all():
-        conversation_messages = await session.execute(
-            select(ConversationMessage)
-            .where(ConversationMessage.user_conversation_id == uc.id)
-            .order_by(ConversationMessage.created_at.asc())
+    if user_conversation is None:
+        return None
+
+    return await _conversation_read(
+        user_conversation,
+        session=session,
+        include_messages=get_messages,
+    )
+
+
+async def update_user_conversation(
+    user_id: uuid.UUID,
+    conversation_id: uuid.UUID,
+    user_conversation_update: UserConversationUpdate,
+    session: AsyncSession,
+) -> UserConversationRead | None:
+    update_values = user_conversation_update.model_dump(exclude_unset=True)
+    existing_user_conversation = await session.scalar(
+        select(UserConversation).where(
+            UserConversation.user_id == user_id,
+            UserConversation.conversation_id == conversation_id,
         )
+    )
 
-        message_conversations: list[ConversationMessageRead] = []
-        for cm in conversation_messages.scalars().all():
-            messaage = ConversationMessageRead.model_validate(cm)
-            message_conversations.append(messaage)
-        uc_read = UserConversationRead.model_validate(uc)
+    if existing_user_conversation is None:
+        return None
 
-        uc_read.conversation_messages = message_conversations
-        ret.append(uc_read)
+    if not update_values:
+        return await _conversation_read(existing_user_conversation, session=session)
 
-    return ret
+    try:
+        updated_user_conversation = await session.scalar(
+            update(UserConversation)
+            .where(UserConversation.id == existing_user_conversation.id)
+            .values(**update_values)
+            .returning(UserConversation)
+        )
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        return None
+
+    if updated_user_conversation is None:
+        return None
+
+    return await _conversation_read(updated_user_conversation, session=session)
+
+
+async def delete_user_conversation(
+    user_id: uuid.UUID,
+    conversation_id: uuid.UUID,
+    session: AsyncSession,
+) -> bool:
+    existing_user_conversation = await session.scalar(
+        select(UserConversation).where(
+            UserConversation.user_id == user_id,
+            UserConversation.conversation_id == conversation_id,
+        )
+    )
+
+    if existing_user_conversation is None:
+        return False
+
+    await session.execute(
+        delete(UserConversation).where(UserConversation.id == existing_user_conversation.id)
+    )
+    await session.commit()
+
+    return True
+
+
+async def create_conversation_message(
+    user_id: uuid.UUID,
+    conversation_id: uuid.UUID,
+    conversation_message: ConversationMessageCreate,
+    session: AsyncSession,
+) -> ConversationMessageRead | None:
+    user_conversation = await session.scalar(
+        select(UserConversation).where(
+            UserConversation.user_id == user_id,
+            UserConversation.conversation_id == conversation_id,
+        )
+    )
+
+    if user_conversation is None:
+        return None
+
+    created_conversation_message = await session.scalar(
+        insert(ConversationMessage)
+        .values(
+            user_conversation_id=user_conversation.id,
+            message_text=conversation_message.message_text,
+            sender_is_agent=conversation_message.sender_is_agent,
+        )
+        .returning(ConversationMessage)
+    )
+    await session.commit()
+
+    if created_conversation_message is None:
+        return None
+
+    return ConversationMessageRead.model_validate(created_conversation_message)
+
+
+async def list_conversation_messages(
+    user_id: uuid.UUID,
+    conversation_id: uuid.UUID,
+    session: AsyncSession,
+) -> list[ConversationMessageRead]:
+    result = await session.scalars(
+        select(ConversationMessage)
+        .join(UserConversation, ConversationMessage.user_conversation_id == UserConversation.id)
+        .where(
+            UserConversation.user_id == user_id,
+            UserConversation.conversation_id == conversation_id,
+        )
+        .order_by(ConversationMessage.created_at.asc())
+    )
+
+    return [ConversationMessageRead.model_validate(message) for message in result]
+
+
+async def get_conversation_message(
+    user_id: uuid.UUID,
+    conversation_id: uuid.UUID,
+    message_id: int,
+    session: AsyncSession,
+) -> ConversationMessageRead | None:
+    conversation_message = await session.scalar(
+        select(ConversationMessage)
+        .join(UserConversation, ConversationMessage.user_conversation_id == UserConversation.id)
+        .where(
+            UserConversation.user_id == user_id,
+            UserConversation.conversation_id == conversation_id,
+            ConversationMessage.id == message_id,
+        )
+    )
+
+    if conversation_message is None:
+        return None
+
+    return ConversationMessageRead.model_validate(conversation_message)
+
+
+async def update_conversation_message(
+    user_id: uuid.UUID,
+    conversation_id: uuid.UUID,
+    message_id: int,
+    conversation_message_update: ConversationMessageUpdate,
+    session: AsyncSession,
+) -> ConversationMessageRead | None:
+    existing_conversation_message = await session.scalar(
+        select(ConversationMessage)
+        .join(UserConversation, ConversationMessage.user_conversation_id == UserConversation.id)
+        .where(
+            UserConversation.user_id == user_id,
+            UserConversation.conversation_id == conversation_id,
+            ConversationMessage.id == message_id,
+        )
+    )
+
+    if existing_conversation_message is None:
+        return None
+
+    update_values = conversation_message_update.model_dump(exclude_unset=True)
+    if not update_values:
+        return ConversationMessageRead.model_validate(existing_conversation_message)
+
+    updated_conversation_message = await session.scalar(
+        update(ConversationMessage)
+        .where(ConversationMessage.id == existing_conversation_message.id)
+        .values(**update_values)
+        .returning(ConversationMessage)
+    )
+    await session.commit()
+
+    if updated_conversation_message is None:
+        return None
+
+    return ConversationMessageRead.model_validate(updated_conversation_message)
+
+
+async def delete_conversation_message(
+    user_id: uuid.UUID,
+    conversation_id: uuid.UUID,
+    message_id: int,
+    session: AsyncSession,
+) -> bool:
+    existing_conversation_message = await session.scalar(
+        select(ConversationMessage)
+        .join(UserConversation, ConversationMessage.user_conversation_id == UserConversation.id)
+        .where(
+            UserConversation.user_id == user_id,
+            UserConversation.conversation_id == conversation_id,
+            ConversationMessage.id == message_id,
+        )
+    )
+
+    if existing_conversation_message is None:
+        return False
+
+    await session.execute(
+        delete(ConversationMessage).where(
+            ConversationMessage.id == existing_conversation_message.id
+        )
+    )
+    await session.commit()
+
+    return True

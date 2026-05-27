@@ -23,6 +23,7 @@ class ConversationMessage(Base):
         nullable=False,
     )
     message_text: Mapped[str] = mapped_column(Text, nullable=False)
+    sender_is_agent: Mapped[bool] = mapped_column(nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

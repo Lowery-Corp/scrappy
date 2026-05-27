@@ -14,13 +14,14 @@ export default function DocumentChat() {
   const [draftMessage, setDraftMessage] = useState("");
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [multipleSelectedChatIds, setMultipleSelectedChatIds] = useState([]);
+  const [multiSelectMode, setMultiSelectMode] = useState(false);
 
   const loadUserConversations = async () => {
     try {
       setIsLoading(true);
 
       const conversations = await getUserConversations();
-      console.log("Loaded user conversations:", conversations);
 
       const safeConversations = Array.isArray(conversations)
         ? conversations
@@ -32,6 +33,14 @@ export default function DocumentChat() {
         if (currentActiveChatId) {
           const stillExists = safeConversations.some(
             (chat) => chat.conversation_id === currentActiveChatId
+          );
+          // If the chat still exists, set the messages to the active chat's messages, otherwise clear messages
+          setMessages(
+            stillExists
+              ? safeConversations.find(
+                  (chat) => chat.conversation_id === currentActiveChatId
+                )?.conversation_messages || []
+              : []
           );
 
           if (stillExists) {
@@ -76,8 +85,6 @@ export default function DocumentChat() {
     setDraftMessage("");
   };
 
-  console.log("Rendering DocumentChat with activeChat:", activeChat);
-
   const newChat = () => {
     console.log("New chat button clicked");
     if (!user) {
@@ -103,16 +110,22 @@ export default function DocumentChat() {
     return true;
   }
 
-  const deleteChat = (conversationId) => {
-    console.log("Delete chat with ID:", conversationId);
-    const index = userChats.findIndex(
-      (chat) => chat.conversation_id === conversationId
-    );
-    if (index !== -1) {
-      userChats.splice(index, 1);
-      setUserChats([...userChats]);
-      if (activeChatId === conversationId) {
-        setActiveChatId(userChats.length > 0 ? userChats[0].conversation_id : null);
+  const handleNewMessage = (message) => {
+    console.log("New message added:", message);
+  }
+
+  const deleteChat = (conversationIds) => {
+    for (const conversationId of conversationIds) {
+      console.log("Delete chat with ID:", conversationId);
+      const index = userChats.findIndex(
+        (chat) => chat.conversation_id === conversationId
+      );
+      if (index !== -1) {
+        userChats.splice(index, 1);
+        setUserChats([...userChats]);
+        if (activeChatId === conversationId) {
+          setActiveChatId(userChats.length > 0 ? userChats[0].conversation_id : null);
+        }
       }
     }
   };
@@ -126,6 +139,10 @@ export default function DocumentChat() {
           onSelectChat={setActiveChatId}
           newChat={newChat}
           deleteChat={deleteChat}
+          setMultipleSelectedChatIds={setMultipleSelectedChatIds}
+          multipleSelectedChatIds={multipleSelectedChatIds}
+          multiSelectMode={multiSelectMode}
+          setMultiSelectMode={setMultiSelectMode}
         />
 
         <section className="flex min-h-[680px] flex-1 flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white/90 shadow-xl dark:border-gray-700 dark:bg-gray-800/90">

@@ -1,24 +1,35 @@
 import uuid
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from schemas.conversation_message import ConversationMessageRead
 
 
 class UserConversationCreate(BaseModel):
-    user_id: uuid.UUID
-    conversation_name: str | None = None
+    conversation_name: str = "New Chat"
     conversation_id: uuid.UUID | None = None
+    relevant_file_ids: list[uuid.UUID] = Field(default_factory=list)
+
+
+class UserConversationUpdate(BaseModel):
+    conversation_name: str | None = None
     relevant_file_ids: list[uuid.UUID] | None = None
 
 
 class UserConversationRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    id: int
     user_id: uuid.UUID
     conversation_id: uuid.UUID
     conversation_name: str
-    conversation_messages: list[ConversationMessageRead] = []
-    relevant_file_ids: list[uuid.UUID] = []
-
+    conversation_messages: list[ConversationMessageRead] = Field(default_factory=list)
+    relevant_file_ids: list[uuid.UUID] = Field(default_factory=list)
+    created_at: datetime
     updated_at: datetime
+
+    @field_validator("relevant_file_ids", mode="before")
+    @classmethod
+    def default_relevant_file_ids(cls, value: list[uuid.UUID] | None) -> list[uuid.UUID]:
+        return value or []

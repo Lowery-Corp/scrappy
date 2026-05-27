@@ -1,4 +1,6 @@
 export default function ChatThread({ messages, username }) {
+  console.log("Adding new message to thread:", messages);
+
   return (
     <div className="flex-1 space-y-5 overflow-y-auto p-5 text-left">
       <div className="rounded-xl border border-dashed border-purple-300 bg-purple-50/80 p-4 dark:border-purple-800 dark:bg-purple-950/30">
@@ -11,7 +13,7 @@ export default function ChatThread({ messages, username }) {
       </div>
 
       {messages.map((message) => {
-        const isUser = message.role === "user";
+        const isUser = message.sender_is_agent === false;
 
         return (
           <div
@@ -25,7 +27,7 @@ export default function ChatThread({ messages, username }) {
                   : "border border-gray-200 bg-gray-50 text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
               }`}
             >
-              <p className="text-sm leading-6">{message.content}</p>
+              <p className="text-sm leading-6">{message.message_text}</p>
               {!isUser && message.sources?.length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-2">
                   {message.sources.map((source) => (
