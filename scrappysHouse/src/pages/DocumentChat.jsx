@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
-import { getUserConversations } from "../services/user_conversations";
+import { getUserConversations, createConversation, deleteConversations } from "../services/user_conversations";
 import ChatComposer from "../components/documentChat/ChatComposer";
 import ChatPanelHeader from "../components/documentChat/ChatPanelHeader";
 import ChatSidebar from "../components/documentChat/ChatSidebar";
@@ -8,6 +9,8 @@ import ChatThread from "../components/documentChat/ChatThread";
 
 export default function DocumentChat() {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const { conversationId } = useParams();
 
   const [userChats, setUserChats] = useState([]);
   const [activeChatId, setActiveChatId] = useState(null);
@@ -22,36 +25,13 @@ export default function DocumentChat() {
       setIsLoading(true);
 
       const conversations = await getUserConversations();
+      console.log("Fetched conversations:", conversations);
 
       const safeConversations = Array.isArray(conversations)
         ? conversations
         : [];
 
       setUserChats(safeConversations);
-
-      setActiveChatId((currentActiveChatId) => {
-        if (currentActiveChatId) {
-          const stillExists = safeConversations.some(
-            (chat) => chat.conversation_id === currentActiveChatId
-          );
-          // If the chat still exists, set the messages to the active chat's messages, otherwise clear messages
-          setMessages(
-            stillExists
-              ? safeConversations.find(
-                  (chat) => chat.conversation_id === currentActiveChatId
-                )?.conversation_messages || []
-              : []
-          );
-
-          if (stillExists) {
-            return currentActiveChatId;
-          }
-        }
-
-        return safeConversations.length > 0
-          ? safeConversations[0].conversation_id
-          : null;
-      });
     } catch (error) {
       console.error("Failed to load user conversations:", error);
       setUserChats([]);
@@ -62,10 +42,16 @@ export default function DocumentChat() {
   };
 
   useEffect(() => {
+    if (conversationId) {
+      setActiveChatId(conversationId);
+    } else {
+      setActiveChatId("new-chat");
+    }
     loadUserConversations();
-  }, []);
+  }, [conversationId]);
 
-  const handleChatSync = async () => {
+  // TODO: add websocket or polling to sync chats in real-time
+  const handleConversionSync = async () => {
     await loadUserConversations();
   };
 
@@ -75,18 +61,32 @@ export default function DocumentChat() {
     }
 
     return (
-      userChats.find((chat) => chat.conversation_id === activeChatId) ??
-      userChats[0]
+      userChats.find((chat) => chat.conversation_id === activeChatId)
+      // userChats[0]
     );
   }, [userChats, activeChatId]);
 
+  const handleNewMessage = (message) => {
+    createConversation({
+      user_message: {"message_text": message, "sender_id_agent": false},
+      relevant_file_ids: [],
+    })
+    .then(() => {
+      setDraftMessage("");
+      handleConversionSync();
+    })
+    .catch((error) => {
+      console.error("Failed to send message:", error);
+    });
+  }
+
   const handleSubmit = (event) => {
     event.preventDefault();
+    handleNewMessage(draftMessage);
     setDraftMessage("");
   };
 
   const newChat = () => {
-    console.log("New chat button clicked");
     if (!user) {
       console.warn("No user found, cannot create new chat");
       return;
@@ -98,23 +98,20 @@ export default function DocumentChat() {
       }
     }
 
-    userChats.unshift({
-      conversation_id: `temp-${Date.now()}`,
-      conversation_name: "New Chat",
-      preview: "",
-      relevant_file_ids: [],
-      updated_at: new Date().toISOString(),
-    });
-    setUserChats([...userChats]);
-    setActiveChatId(userChats[0].conversation_id);
+    // userChats.unshift({
+    //   conversation_id: `temp-id-${Date.now()}`,
+    //   conversation_name: "New Chat",
+    //   preview: "",
+    //   relevant_file_ids: [],
+    //   updated_at: new Date().toISOString(),
+    // });
+    // setUserChats([...userChats]);
+    setActiveChatId(null);
     return true;
   }
 
-  const handleNewMessage = (message) => {
-    console.log("New message added:", message);
-  }
-
   const deleteChat = (conversationIds) => {
+
     for (const conversationId of conversationIds) {
       console.log("Delete chat with ID:", conversationId);
       const index = userChats.findIndex(
@@ -128,6 +125,14 @@ export default function DocumentChat() {
         }
       }
     }
+    deleteConversations(conversationIds).catch((error) => {
+      console.error("Failed to delete conversations:", error);
+    });
+  };
+
+  const handleSelectChat = (conversationId) => {
+    setActiveChatId(conversationId);
+    navigate(`/chat/${conversationId}`);
   };
 
   return (
@@ -136,7 +141,7 @@ export default function DocumentChat() {
         <ChatSidebar
           chats={userChats}
           activeChatId={activeChat?.conversation_id ?? null}
-          onSelectChat={setActiveChatId}
+          onSelectChat={handleSelectChat}
           newChat={newChat}
           deleteChat={deleteChat}
           setMultipleSelectedChatIds={setMultipleSelectedChatIds}

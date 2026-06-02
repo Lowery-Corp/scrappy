@@ -68,7 +68,7 @@ export default function App() {
                     File Store
                   </Link>
                   <Link
-                    to="/document-chat"
+                    to="/chat"
                     className="text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 px-3 py-2 rounded-md text-sm font-medium transition-colors"
                   >
                     Chat
@@ -140,7 +140,7 @@ export default function App() {
             <Route path="/" element={<Home />} />
             <Route path="/home" element={<Home />} />
             <Route path="/store" element={<FileStore />} />
-            <Route path="/document-chat" element={<DocumentChat />} />
+            <Route path="/chat/:conversationId?" element={<DocumentChat />} />
           </Route>
 
           <Route path="*" element={<NotFound />} />
