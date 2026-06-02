@@ -13,7 +13,7 @@ from repositories.file_job import create_file_job, update_file_job
 from repositories.task_queue import enqueue_file_ingestion_task
 
 
-async def create_user_bucketstore(user_id: int, bucket_name: str, session: AsyncSession) -> dict[str, str]:
+async def create_user_bucketstore(user_id: uuid.UUID, bucket_name: str, session: AsyncSession) -> dict[str, str]:
     new_user_filestore = UserFileStore(user_id=user_id, bucket_name=bucket_name, bucket_structure={})
     session.add(new_user_filestore)
     await session.commit()
@@ -21,7 +21,7 @@ async def create_user_bucketstore(user_id: int, bucket_name: str, session: Async
 
 
 async def sync_user_bucketstore(
-    user_id: str,
+    user_id: uuid.UUID,
     session: AsyncSession,
 ) -> dict[str, str | bool]:
 
@@ -55,7 +55,7 @@ async def get_user_bucketstore(user_id: str, session: AsyncSession) -> dict[str,
     return {"bucket_structure": bucket_structure}
 
 
-async def add_file_to_bucketstore(user_id: str, file_path: str, file: UploadFile, session: AsyncSession) -> dict[str, str | bool]:
+async def add_file_to_bucketstore(user_id: uuid.UUID, file_path: str, file: UploadFile, session: AsyncSession) -> dict[str, str | bool]:
     bucket_name: str = f"user-{user_id}-bucket"
     parsed_file_path: str = f"""{file_path.strip("/")}/{file.filename}"""
     storage_key: str = f"home/{parsed_file_path}".replace("//", "/").lower()
@@ -104,6 +104,12 @@ async def add_file_to_bucketstore(user_id: str, file_path: str, file: UploadFile
 
         user_file = (await session.execute(insert_stmt)).scalar_one()
         await session.commit()
+
+    create_user_bucketstore_status = await create_user_bucketstore(user_id=user_id, bucket_name=bucket_name, session=session)
+    assert create_user_bucketstore_status["ok"], f"Failed to sync UserFileStore after file upload: {create_user_bucketstore_status}"
+
+    sync_user_bucketstore_status = await sync_user_bucketstore(user_id=user_id, session=session)
+    assert sync_user_bucketstore_status["ok"], f"Failed to sync UserFileStore after file upload: {sync_user_bucketstore_status}"
 
     new_file_job = FileJobCreate(
         file_id=user_file.file_id,
