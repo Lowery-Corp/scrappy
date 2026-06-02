@@ -23,18 +23,25 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build and push Docker image
+      - name: Build and push scrappys-house image
         uses: docker/build-push-action@v6
         with:
-          context: .
-          file: ./Dockerfile
+          context: ./scrappysHouse
+          file: ./scrappysHouse/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/scrappys-house:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/scrappys-house:${{ github.sha }}
+
+      - name: Build and push scrappys-scrapyard image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./scrappysScrapyard
+          file: ./scrappysScrapyard/Dockerfile
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/scrappys-scrapyard:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/scrappys-scrapyard:${{ github.sha }}
-
-            ${{ secrets.DOCKERHUB_USERNAME }}/scrappys-house:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/scrappys-house:${{ github.sha }}
 
       - name: Connect GitHub Actions to Tailscale
         uses: tailscale/github-action@v3
