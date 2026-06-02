@@ -13,11 +13,11 @@ from repositories.file_job import create_file_job, update_file_job
 from repositories.task_queue import enqueue_file_ingestion_task
 
 
-async def create_user_bucketstore(user_id: uuid.UUID, bucket_name: str, session: AsyncSession) -> dict[str, str]:
+async def create_user_bucketstore(user_id: uuid.UUID, bucket_name: str, session: AsyncSession) -> dict[str, str | bool]:
     new_user_filestore = UserFileStore(user_id=user_id, bucket_name=bucket_name, bucket_structure={})
     session.add(new_user_filestore)
     await session.commit()
-    return {"message": f"UserFilestore created for user ID {user_id}"}
+    return {"message": f"UserFilestore created for user ID {user_id}", "ok": True}
 
 
 async def sync_user_bucketstore(
@@ -41,7 +41,7 @@ async def sync_user_bucketstore(
     return {"message": f"UserFileStore updated for user ID {user_id}", "ok": True}
 
 
-async def get_user_bucketstore(user_id: str, session: AsyncSession) -> dict[str, Any]:
+async def get_user_bucketstore(user_id: uuid.UUID, session: AsyncSession) -> dict[str, Any]:
     result = await session.execute(
         select(UserFileStore).where(UserFileStore.user_id == user_id)
     )
@@ -105,8 +105,10 @@ async def add_file_to_bucketstore(user_id: uuid.UUID, file_path: str, file: Uplo
         user_file = (await session.execute(insert_stmt)).scalar_one()
         await session.commit()
 
-    create_user_bucketstore_status = await create_user_bucketstore(user_id=user_id, bucket_name=bucket_name, session=session)
-    assert create_user_bucketstore_status["ok"], f"Failed to sync UserFileStore after file upload: {create_user_bucketstore_status}"
+    get_user_bucketstore_status = await get_user_bucketstore(user_id=user_id, session=session)
+    if "message" in get_user_bucketstore_status and "No UserFileStore found" in get_user_bucketstore_status["message"]:
+        create_user_bucketstore_status = await create_user_bucketstore(user_id=user_id, bucket_name=bucket_name, session=session)
+        assert create_user_bucketstore_status["ok"], f"Failed to sync UserFileStore after file upload: {create_user_bucketstore_status}"
 
     sync_user_bucketstore_status = await sync_user_bucketstore(user_id=user_id, session=session)
     assert sync_user_bucketstore_status["ok"], f"Failed to sync UserFileStore after file upload: {sync_user_bucketstore_status}"
@@ -118,7 +120,7 @@ async def add_file_to_bucketstore(user_id: uuid.UUID, file_path: str, file: Uplo
     )
 
     new_file_job = await create_file_job(
-        user_id=user_id,
+        user_id=str(user_id),
         file_job=new_file_job,
         session=session,
     )
