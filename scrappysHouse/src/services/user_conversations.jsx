@@ -4,10 +4,10 @@ import { api } from "./api";
 export const getUserConversations = async () => {
   try {
     const params = {
-      get_messages: true
+      get_messages: false,
     }
     const response = await api.get(`/api/v1/conversations`, { params });
-    return response.data.data;
+    return response.data;
   } catch (error) {
     console.error("Error fetching user conversations:", error);
     throw error;
