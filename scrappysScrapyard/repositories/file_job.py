@@ -21,7 +21,7 @@ def _user_scoped_file_job_query(user_id: str | None = None):
 
 
 async def create_file_job(
-    user_id: str,
+    user_id: uuid.UUID,
     file_job: FileJobCreate,
     session: AsyncSession,
 ) -> FileJob | None:
@@ -107,7 +107,7 @@ async def get_file_job(
 
 
 async def update_file_job(
-    user_id: str,
+    user_id: uuid.UUID | None,
     job_id: uuid.UUID,
     file_job_update: FileJobUpdate,
     session: AsyncSession,
