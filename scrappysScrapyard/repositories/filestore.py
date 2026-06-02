@@ -157,6 +157,7 @@ async def add_file_to_bucketstore(user_id: uuid.UUID, file_path: str, file: Uplo
     if updated_file_job is None:
         return {"message": f"Failed to update file job status to 'queued' for file ID {user_file.file_id} and user ID {user_id}", "ok": False}
 
+    # TODO: Return bucket structure with new file added
     return {
         "ok": True,
         "message": f"File '{storage_key}' added to UserFileStore for user ID {user_id}",
