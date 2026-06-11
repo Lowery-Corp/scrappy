@@ -1,8 +1,14 @@
+import { useEffect, useRef } from "react";
+
 export default function ChatThread({ messages, username }) {
-  console.log("Adding new message to thread:", messages);
+  const bottomRef = useRef(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ block: "end" });
+  }, [messages]);
 
   return (
-    <div className="flex-1 space-y-5 overflow-y-auto p-5 text-left">
+    <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5 text-left">
       <div className="rounded-xl border border-dashed border-purple-300 bg-purple-50/80 p-4 dark:border-purple-800 dark:bg-purple-950/30">
         <p className="text-sm font-semibold text-purple-800 dark:text-purple-200">
           RAG workspace for {username}
@@ -44,6 +50,7 @@ export default function ChatThread({ messages, username }) {
           </div>
         );
       })}
+      <div ref={bottomRef} aria-hidden="true" />
     </div>
   );
 }
