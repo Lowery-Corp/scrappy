@@ -8,6 +8,7 @@ from db.dependencies import get_session
 from repositories.user_conversation import (
     create_conversation_message,
     create_user_conversation,
+    create_llm_response_conversation_message,
     delete_conversation_message,
     delete_user_conversation,
     get_conversation_message,
@@ -146,21 +147,38 @@ async def create_conversation_message_route(
     conversation_message: ConversationMessageCreate,
     current_user: AuthorizedUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
-) -> ConversationMessageRead:
+) -> bool:
+
+    new_responses: list[ConversationMessageRead] = []
+
     created_conversation_message = await create_conversation_message(
         user_id=uuid.UUID(current_user.id),
         conversation_id=conversation_id,
         conversation_message=conversation_message,
         session=session,
     )
-
     if created_conversation_message is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Conversation not found",
         )
+    assert created_conversation_message is not None, "Failed to create conversation message"
+    new_responses.append(created_conversation_message)
 
-    return created_conversation_message
+    response_with_llm = await create_llm_response_conversation_message(
+        user_id=uuid.UUID(current_user.id),
+        conversation_id=conversation_id,
+        message_text=f"Response to: {created_conversation_message.message_text}",
+        session=session,
+    )
+    if response_with_llm is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Conversation not found",
+        )
+    new_responses.append(response_with_llm)
+
+    return True
 
 
 @router.get("/{conversation_id}/messages", response_model=list[ConversationMessageRead])

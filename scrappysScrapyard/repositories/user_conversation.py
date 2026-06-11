@@ -179,6 +179,25 @@ async def delete_user_conversation(
     return True
 
 
+async def create_llm_response_conversation_message(
+    user_id: uuid.UUID,
+    conversation_id: uuid.UUID,
+    message_text: str,
+    session: AsyncSession,
+) -> ConversationMessageRead | None:
+    conversation_message_create = ConversationMessageCreate(
+        message_text=message_text,
+        sender_is_agent=True,
+    )
+
+    return await create_conversation_message(
+        user_id=user_id,
+        conversation_id=conversation_id,
+        conversation_message=conversation_message_create,
+        session=session,
+    )
+
+
 async def create_conversation_message(
     user_id: uuid.UUID,
     conversation_id: uuid.UUID,

@@ -102,7 +102,7 @@ export default function DocumentChat() {
         });
 
         setDraftMessage("");
-        setMessages((previousMessages) => [...previousMessages, createdMessage]);
+        // setMessages((previousMessages) => [...previousMessages, createdMessage]);
         handleConversionSync();
       } catch (error) {
         console.error("Failed to send message:", error);
