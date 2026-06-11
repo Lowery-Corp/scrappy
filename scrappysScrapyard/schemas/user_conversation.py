@@ -9,11 +9,13 @@ from schemas.conversation_message import ConversationMessageRead, ConversationMe
 class UserConversationCreate(BaseModel):
     user_message: ConversationMessageCreate
     relevant_file_ids: list[uuid.UUID] = []
+    openai_conversation_id: str | None = None
 
 
 class UserConversationUpdate(BaseModel):
     conversation_name: str | None = None
     relevant_file_ids: list[uuid.UUID] | None = None
+    openai_conversation_id: str | None = None
 
 
 class UserConversationRead(BaseModel):
@@ -23,6 +25,7 @@ class UserConversationRead(BaseModel):
     user_id: uuid.UUID
     conversation_id: uuid.UUID
     conversation_name: str
+    openai_conversation_id: str | None = None
     conversation_messages: list[ConversationMessageRead] = Field(default_factory=list)
     relevant_file_ids: list[uuid.UUID] = Field(default_factory=list)
     created_at: datetime

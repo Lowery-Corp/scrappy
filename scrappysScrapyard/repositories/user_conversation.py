@@ -41,10 +41,11 @@ async def create_user_conversation(
 ) -> UserConversationRead | None:
 
     # TODO: Make the conversation_name dynamic based on the first message or something else in the future.
-    new_user_conversation: dict[str, str | uuid.UUID | list[uuid.UUID]] = {
+    new_user_conversation: dict[str, str | uuid.UUID | list[uuid.UUID] | None] = {
         "user_id": user_id,
         "conversation_name": "New Conversation",
         "relevant_file_ids": user_conversation.relevant_file_ids,
+        "openai_conversation_id": user_conversation.openai_conversation_id,
     }
 
     try:
@@ -220,6 +221,7 @@ async def create_conversation_message(
             user_conversation_id=user_conversation.id,
             message_text=conversation_message.message_text,
             sender_is_agent=conversation_message.sender_is_agent,
+            llm_message_id=conversation_message.llm_message_id,
         )
         .returning(ConversationMessage)
     )

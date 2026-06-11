@@ -18,6 +18,7 @@ class UserConversation(Base):
     __table_args__ = (
         Index("ix_user_file_user_id", "user_id"),
         Index("ix_user_file_created_at", "created_at"),
+        Index("ix_user_conversation_openai_conversation_id", "openai_conversation_id"),
         UniqueConstraint(
             "user_id",
             "conversation_id",
@@ -38,6 +39,12 @@ class UserConversation(Base):
     )
 
     conversation_name: Mapped[str] = mapped_column(String(255), nullable=False)
+
+    openai_conversation_id: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+        unique=True,
+    )
 
     relevant_file_ids: Mapped[list[uuid.UUID] | None] = mapped_column(
         ARRAY(UUID(as_uuid=True)),
