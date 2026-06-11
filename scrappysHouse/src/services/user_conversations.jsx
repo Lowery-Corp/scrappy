@@ -3,10 +3,7 @@ import { api } from "./api";
 
 export const getUserConversations = async () => {
   try {
-    const params = {
-      get_messages: false,
-    }
-    const response = await api.get(`/api/v1/conversations`, { params });
+    const response = await api.get(`/api/v1/conversations`);
     return response.data;
   } catch (error) {
     console.error("Error fetching user conversations:", error);
@@ -42,6 +39,16 @@ export const deleteConversations = async (conversationIds) => {
     await Promise.all(deletePromises);
   } catch (error) {
     console.error("Error deleting conversations:", error);
+    throw error;
+  }
+}
+
+export const getConversationMessages = async (conversationId) => {
+  try {
+    const response = await api.get(`/api/v1/conversations/${conversationId}/messages`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching conversation messages:", error);
     throw error;
   }
 }

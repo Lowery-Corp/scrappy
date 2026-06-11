@@ -17,7 +17,6 @@ from schemas.user_conversation import (
     UserConversationUpdate,
 )
 
-
 async def _conversation_read(
     user_conversation: UserConversation,
     session: AsyncSession,
@@ -25,7 +24,7 @@ async def _conversation_read(
 ) -> UserConversationRead:
     conversation_read = UserConversationRead.model_validate(user_conversation)
 
-    if include_messages:
+    if include_messages is True:
         conversation_read.conversation_messages = await list_conversation_messages(
             user_id=user_conversation.user_id,
             conversation_id=user_conversation.conversation_id,
@@ -40,30 +39,42 @@ async def create_user_conversation(
     user_conversation: UserConversationCreate,
     session: AsyncSession,
 ) -> UserConversationRead | None:
-    create_values = user_conversation.model_dump(exclude_none=True)
-    create_values["user_id"] = user_id
+
+    # TODO: Make the conversation_name dynamic based on the first message or something else in the future.
+    new_user_conversation: dict[str, str | uuid.UUID | list[uuid.UUID]] = {
+        "user_id": user_id,
+        "conversation_name": "New Conversation",
+        "relevant_file_ids": user_conversation.relevant_file_ids,
+    }
 
     try:
         created_user_conversation = await session.scalar(
             insert(UserConversation)
-            .values(**create_values)
+            .values(**new_user_conversation)
             .returning(UserConversation)
         )
         await session.commit()
+        assert created_user_conversation is not None, "Failed to create user conversation"
+
+        user_conversation_id = created_user_conversation.conversation_id
+
+        new_conversation_message = await create_conversation_message(
+            user_id=user_id,
+            conversation_id=user_conversation_id,
+            conversation_message=user_conversation.user_message,
+            session=session,
+        )
+        assert new_conversation_message is not None, "Failed to create initial conversation message"
+
+        return await _conversation_read(created_user_conversation, session=session, include_messages=True)
     except IntegrityError:
         await session.rollback()
         return None
-
-    if created_user_conversation is None:
-        return None
-
-    return await _conversation_read(created_user_conversation, session=session)
 
 
 async def list_user_conversations(
     user_id: uuid.UUID,
     session: AsyncSession,
-    get_messages: bool = False,
     limit: int = 50,
     offset: int = 0,
 ) -> list[UserConversationRead]:
@@ -79,7 +90,6 @@ async def list_user_conversations(
         await _conversation_read(
             user_conversation,
             session=session,
-            include_messages=get_messages,
         )
         for user_conversation in result
     ]

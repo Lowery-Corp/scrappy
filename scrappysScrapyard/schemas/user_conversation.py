@@ -3,13 +3,12 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from schemas.conversation_message import ConversationMessageRead
+from schemas.conversation_message import ConversationMessageRead, ConversationMessageCreate
 
 
 class UserConversationCreate(BaseModel):
-    conversation_name: str = "New Chat"
-    conversation_id: uuid.UUID | None = None
-    relevant_file_ids: list[uuid.UUID] = Field(default_factory=list)
+    user_message: ConversationMessageCreate
+    relevant_file_ids: list[uuid.UUID] = []
 
 
 class UserConversationUpdate(BaseModel):

@@ -34,13 +34,14 @@ router = APIRouter(tags=["conversations"])
 
 @router.post("", response_model=UserConversationRead, status_code=status.HTTP_201_CREATED)
 async def create_user_conversation_route(
-    user_conversation: UserConversationCreate | None = None,
+    user_conversation: UserConversationCreate,
     current_user: AuthorizedUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> UserConversationRead:
+
     created_user_conversation = await create_user_conversation(
         user_id=uuid.UUID(current_user.id),
-        user_conversation=user_conversation or UserConversationCreate(),
+        user_conversation=user_conversation,
         session=session,
     )
 
@@ -55,7 +56,6 @@ async def create_user_conversation_route(
 
 @router.get("", response_model=list[UserConversationRead])
 async def list_user_conversations_route(
-    get_messages: bool = False,
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     current_user: AuthorizedUser = Depends(get_current_user),
@@ -64,7 +64,6 @@ async def list_user_conversations_route(
     return await list_user_conversations(
         user_id=uuid.UUID(current_user.id),
         session=session,
-        get_messages=get_messages,
         limit=limit,
         offset=offset,
     )

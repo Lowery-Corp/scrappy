@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
-import { getUserConversations, createConversation, deleteConversations } from "../services/user_conversations";
+import { getUserConversations, getConversationMessages, createConversation, deleteConversations } from "../services/user_conversations";
 import ChatComposer from "../components/documentChat/ChatComposer";
 import ChatPanelHeader from "../components/documentChat/ChatPanelHeader";
 import ChatSidebar from "../components/documentChat/ChatSidebar";
@@ -25,13 +25,18 @@ export default function DocumentChat() {
       setIsLoading(true);
 
       const conversations = await getUserConversations();
-      console.log("Fetched conversations:", conversations);
 
       const safeConversations = Array.isArray(conversations)
         ? conversations
         : [];
 
       setUserChats(safeConversations);
+      if (conversationId && conversationId !== "new") {
+        const conversationMessages = await getConversationMessages(conversationId);
+        setMessages(conversationMessages);
+      } else {
+        setMessages([]);
+      }
     } catch (error) {
       console.error("Failed to load user conversations:", error);
       setUserChats([]);
@@ -97,15 +102,9 @@ export default function DocumentChat() {
         return;
       }
     }
+    navigate(`/chat/new`);
+    setMessages([]);
 
-    // userChats.unshift({
-    //   conversation_id: `temp-id-${Date.now()}`,
-    //   conversation_name: "New Chat",
-    //   preview: "",
-    //   relevant_file_ids: [],
-    //   updated_at: new Date().toISOString(),
-    // });
-    // setUserChats([...userChats]);
     setActiveChatId(null);
     return true;
   }
@@ -130,9 +129,11 @@ export default function DocumentChat() {
     });
   };
 
-  const handleSelectChat = (conversationId) => {
+  const handleSelectChat = async (conversationId) => {
     setActiveChatId(conversationId);
     navigate(`/chat/${conversationId}`);
+    const conversationMessages = await getConversationMessages(conversationId);
+    setMessages(conversationMessages);
   };
 
   return (
