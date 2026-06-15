@@ -1,4 +1,6 @@
 from collections.abc import AsyncIterator
+from dataclasses import dataclass
+import json
 from typing import Any
 
 from httpx import HTTPStatusError
@@ -217,6 +219,69 @@ async def stream_openai_response(
         async for line in response.aiter_lines():
             if line:
                 yield line
+
+
+@dataclass
+class OpenAIStreamEvent:
+    event_type: str
+    text: str = ""
+    response_id: str | None = None
+
+
+async def stream_openai_response_text(
+    *,
+    input: str | list[dict[str, Any]],
+    model: str | None = None,
+    conversation: str | dict[str, Any] | None = None,
+    instructions: str | None = None,
+    metadata: dict[str, Any] | None = None,
+    **extra_body: Any,
+) -> AsyncIterator[OpenAIStreamEvent]:
+    async for line in stream_openai_response(
+        input=input,
+        model=model,
+        conversation=conversation,
+        instructions=instructions,
+        metadata=metadata,
+        **extra_body,
+    ):
+        if not line.startswith("data: "):
+            continue
+
+        data = line.removeprefix("data: ").strip()
+        if data == "[DONE]":
+            break
+
+        try:
+            event = json.loads(data)
+        except json.JSONDecodeError:
+            continue
+
+        event_type = event.get("type")
+        if event_type == "response.output_text.delta":
+            delta = event.get("delta")
+            if isinstance(delta, str):
+                yield OpenAIStreamEvent(event_type="delta", text=delta)
+        elif event_type == "response.completed":
+            response = event.get("response")
+            response_id = None
+            response_text = ""
+            if isinstance(response, dict):
+                value = response.get("id")
+                response_id = value if isinstance(value, str) else None
+                response_text = get_response_output_text(response)
+            yield OpenAIStreamEvent(
+                event_type="completed",
+                text=response_text,
+                response_id=response_id,
+            )
+        elif event_type == "response.failed":
+            error = event.get("error")
+            if isinstance(error, dict):
+                message = error.get("message")
+                if isinstance(message, str):
+                    raise OpenAIRepositoryError(message)
+            raise OpenAIRepositoryError("OpenAI response stream failed")
 
 
 def get_response_output_text(response: dict[str, Any]) -> str:

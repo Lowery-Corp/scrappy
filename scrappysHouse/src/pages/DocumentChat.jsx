@@ -1,7 +1,7 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useRef, useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
-import { getUserConversations, getConversationMessages, createConversation, deleteConversations, sendMessage } from "../services/user_conversations";
+import { getUserConversations, getConversationMessages, createConversationStream, deleteConversations, sendMessageStream } from "../services/user_conversations";
 import ChatComposer from "../components/documentChat/ChatComposer";
 import ChatPanelHeader from "../components/documentChat/ChatPanelHeader";
 import ChatSidebar from "../components/documentChat/ChatSidebar";
@@ -28,6 +28,7 @@ export default function DocumentChat() {
   const [multipleSelectedChatIds, setMultipleSelectedChatIds] = useState([]);
   const [multiSelectMode, setMultiSelectMode] = useState(false);
   const activeChatId = conversationId && conversationId !== "new" ? conversationId : null;
+  const streamingConversationId = useRef(null);
 
   const handleChatReset = () => {
     setMessages([]);
@@ -44,6 +45,10 @@ export default function DocumentChat() {
 
       setUserChats(safeConversations);
       if (conversationId && conversationId !== "new") {
+        if (streamingConversationId.current === conversationId) {
+          return;
+        }
+
         const conversationMessages = await getConversationMessages(conversationId);
         setMessages(conversationMessages);
       } else {
@@ -93,6 +98,42 @@ export default function DocumentChat() {
       isLoading: true,
     });
 
+    const appendAgentDelta = ({ text }) => {
+      setMessages((previousMessages) =>
+        previousMessages.map((message) =>
+          message.id === optimisticAgentMessage.id
+            ? {
+                ...message,
+                message_text: `${message.message_text}${text}`,
+                is_loading: false,
+              }
+            : message
+        )
+      );
+    };
+
+    const replaceAgentMessage = (agentMessage) => {
+      setMessages((previousMessages) =>
+        previousMessages.map((message) =>
+          message.id === optimisticAgentMessage.id ? agentMessage : message
+        )
+      );
+    };
+
+    const showAgentError = () => {
+      setMessages((previousMessages) =>
+        previousMessages.map((message) =>
+          message.id === optimisticAgentMessage.id
+            ? {
+                ...message,
+                message_text: "Failed to get a response.",
+                is_loading: false,
+              }
+            : message
+        )
+      );
+    };
+
     setDraftMessage("");
     setMessages((previousMessages) => [
       ...previousMessages,
@@ -102,59 +143,62 @@ export default function DocumentChat() {
 
     if (!activeChatId) {
       try {
-        const data = await createConversation({
-          user_message: { message_text: trimmedMessage, sender_is_agent: false },
-          relevant_file_ids: [],
-        });
-
-        setUserChats((previousChats) => [
-          data,
-          ...previousChats.filter(
-            (chat) => chat.conversation_id !== data.conversation_id
-          ),
-        ]);
-        setMessages(data.conversation_messages ?? []);
-        navigate(`/chat/${data.conversation_id}`, { replace: true });
-      } catch (error) {
-        console.error("Failed to send message:", error);
-        setMessages((previousMessages) =>
-          previousMessages.map((message) =>
-            message.id === optimisticAgentMessage.id
-              ? {
-                  ...message,
-                  message_text: "Failed to get a response.",
-                  is_loading: false,
-                }
-              : message
-          )
+        await createConversationStream(
+          {
+            user_message: { message_text: trimmedMessage, sender_is_agent: false },
+            relevant_file_ids: [],
+          },
+          {
+            conversation: (conversation) => {
+              streamingConversationId.current = conversation.conversation_id;
+              setUserChats((previousChats) => [
+                conversation,
+                ...previousChats.filter(
+                  (chat) => chat.conversation_id !== conversation.conversation_id
+                ),
+              ]);
+              setMessages([
+                ...(conversation.conversation_messages ?? []),
+                optimisticAgentMessage,
+              ]);
+              navigate(`/chat/${conversation.conversation_id}`, { replace: true });
+            },
+            delta: appendAgentDelta,
+            message: replaceAgentMessage,
+            done: () => {
+              streamingConversationId.current = null;
+            },
+          }
         );
+      } catch (error) {
+        streamingConversationId.current = null;
+        console.error("Failed to send message:", error);
+        showAgentError();
       }
     } else {
       try {
-        const createdMessage = await sendMessage(activeChatId, {
-          message_text: trimmedMessage,
-          sender_is_agent: false,
-        });
-
-        setMessages((previousMessages) =>
-          previousMessages.map((message) =>
-            message.id === optimisticAgentMessage.id ? createdMessage : message
-          )
+        await sendMessageStream(
+          activeChatId,
+          {
+            message_text: trimmedMessage,
+            sender_is_agent: false,
+          },
+          {
+            user_message: (createdUserMessage) => {
+              setMessages((previousMessages) =>
+                previousMessages.map((message) =>
+                  message.id === optimisticUserMessage.id ? createdUserMessage : message
+                )
+              );
+            },
+            delta: appendAgentDelta,
+            message: replaceAgentMessage,
+          }
         );
         await handleConversionSync();
       } catch (error) {
         console.error("Failed to send message:", error);
-        setMessages((previousMessages) =>
-          previousMessages.map((message) =>
-            message.id === optimisticAgentMessage.id
-              ? {
-                  ...message,
-                  message_text: "Failed to get a response.",
-                  is_loading: false,
-                }
-              : message
-          )
-        );
+        showAgentError();
       }
     }
   }

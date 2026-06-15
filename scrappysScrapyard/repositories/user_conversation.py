@@ -10,6 +10,7 @@ from repositories.openai import (
     create_openai_conversation,
     create_openai_response,
     get_response_output_text,
+    stream_openai_response_text,
 )
 from schemas.conversation_message import (
     ConversationMessageCreate,
@@ -206,12 +207,11 @@ async def create_llm_response_conversation_message(
     )
 
 
-async def create_openai_response_conversation_message(
+async def get_or_create_openai_conversation_id(
     user_id: uuid.UUID,
     conversation_id: uuid.UUID,
-    message_text: str,
     session: AsyncSession,
-) -> ConversationMessageRead | None:
+) -> str | None:
     user_conversation = await session.scalar(
         select(UserConversation).where(
             UserConversation.user_id == user_id,
@@ -222,23 +222,42 @@ async def create_openai_response_conversation_message(
     if user_conversation is None:
         return None
 
-    openai_conversation_id = user_conversation.openai_conversation_id
+    if user_conversation.openai_conversation_id is not None:
+        return user_conversation.openai_conversation_id
+
+    openai_conversation = await create_openai_conversation(
+        metadata={
+            "user_id": str(user_id),
+            "conversation_id": str(conversation_id),
+        }
+    )
+    openai_conversation_id = openai_conversation.get("id")
+    if not isinstance(openai_conversation_id, str):
+        return None
+
+    await session.execute(
+        update(UserConversation)
+        .where(UserConversation.id == user_conversation.id)
+        .values(openai_conversation_id=openai_conversation_id)
+    )
+    await session.commit()
+
+    return openai_conversation_id
+
+
+async def create_openai_response_conversation_message(
+    user_id: uuid.UUID,
+    conversation_id: uuid.UUID,
+    message_text: str,
+    session: AsyncSession,
+) -> ConversationMessageRead | None:
+    openai_conversation_id = await get_or_create_openai_conversation_id(
+        user_id=user_id,
+        conversation_id=conversation_id,
+        session=session,
+    )
     if openai_conversation_id is None:
-        openai_conversation = await create_openai_conversation(
-            metadata={
-                "user_id": str(user_id),
-                "conversation_id": str(conversation_id),
-            }
-        )
-        created_openai_conversation_id = openai_conversation.get("id")
-        if isinstance(created_openai_conversation_id, str):
-            openai_conversation_id = created_openai_conversation_id
-            await session.execute(
-                update(UserConversation)
-                .where(UserConversation.id == user_conversation.id)
-                .values(openai_conversation_id=openai_conversation_id)
-            )
-            await session.commit()
+        return None
 
     openai_response = await create_openai_response(
         input=message_text,
@@ -261,6 +280,31 @@ async def create_openai_response_conversation_message(
         session=session,
         llm_message_id=response_id if isinstance(response_id, str) else None,
     )
+
+
+async def stream_openai_response_conversation_text(
+    user_id: uuid.UUID,
+    conversation_id: uuid.UUID,
+    message_text: str,
+    session: AsyncSession,
+):
+    openai_conversation_id = await get_or_create_openai_conversation_id(
+        user_id=user_id,
+        conversation_id=conversation_id,
+        session=session,
+    )
+    if openai_conversation_id is None:
+        return
+
+    async for event in stream_openai_response_text(
+        input=message_text,
+        conversation=openai_conversation_id,
+        metadata={
+            "user_id": str(user_id),
+            "conversation_id": str(conversation_id),
+        },
+    ):
+        yield event
 
 
 async def create_conversation_message(
