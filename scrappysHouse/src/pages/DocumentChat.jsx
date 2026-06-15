@@ -7,6 +7,16 @@ import ChatPanelHeader from "../components/documentChat/ChatPanelHeader";
 import ChatSidebar from "../components/documentChat/ChatSidebar";
 import ChatThread from "../components/documentChat/ChatThread";
 
+const createOptimisticMessage = ({ messageText, senderIsAgent, isLoading = false }) => ({
+  id: `optimistic-${Date.now()}-${Math.random()}`,
+  user_conversation_id: 0,
+  message_text: messageText,
+  sender_is_agent: senderIsAgent,
+  llm_message_id: null,
+  created_at: new Date().toISOString(),
+  is_loading: isLoading,
+});
+
 export default function DocumentChat() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -73,6 +83,23 @@ export default function DocumentChat() {
       return;
     }
 
+    const optimisticUserMessage = createOptimisticMessage({
+      messageText: trimmedMessage,
+      senderIsAgent: false,
+    });
+    const optimisticAgentMessage = createOptimisticMessage({
+      messageText: "",
+      senderIsAgent: true,
+      isLoading: true,
+    });
+
+    setDraftMessage("");
+    setMessages((previousMessages) => [
+      ...previousMessages,
+      optimisticUserMessage,
+      optimisticAgentMessage,
+    ]);
+
     if (!activeChatId) {
       try {
         const data = await createConversation({
@@ -80,7 +107,6 @@ export default function DocumentChat() {
           relevant_file_ids: [],
         });
 
-        console.log("Created new conversation:", data);
         setUserChats((previousChats) => [
           data,
           ...previousChats.filter(
@@ -88,24 +114,47 @@ export default function DocumentChat() {
           ),
         ]);
         setMessages(data.conversation_messages ?? []);
-        setDraftMessage("");
         navigate(`/chat/${data.conversation_id}`, { replace: true });
       } catch (error) {
         console.error("Failed to send message:", error);
+        setMessages((previousMessages) =>
+          previousMessages.map((message) =>
+            message.id === optimisticAgentMessage.id
+              ? {
+                  ...message,
+                  message_text: "Failed to get a response.",
+                  is_loading: false,
+                }
+              : message
+          )
+        );
       }
     } else {
-      console.log("Send message to existing conversation:", activeChatId);
       try {
         const createdMessage = await sendMessage(activeChatId, {
           message_text: trimmedMessage,
           sender_is_agent: false,
         });
 
-        setDraftMessage("");
-        // setMessages((previousMessages) => [...previousMessages, createdMessage]);
-        handleConversionSync();
+        setMessages((previousMessages) =>
+          previousMessages.map((message) =>
+            message.id === optimisticAgentMessage.id ? createdMessage : message
+          )
+        );
+        await handleConversionSync();
       } catch (error) {
         console.error("Failed to send message:", error);
+        setMessages((previousMessages) =>
+          previousMessages.map((message) =>
+            message.id === optimisticAgentMessage.id
+              ? {
+                  ...message,
+                  message_text: "Failed to get a response.",
+                  is_loading: false,
+                }
+              : message
+          )
+        );
       }
     }
   }
