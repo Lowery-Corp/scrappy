@@ -1,4 +1,11 @@
 export default function ChatComposer({ value, onChange, onSubmit }) {
+  const handleKeyDown = (event) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      event.currentTarget.form?.requestSubmit();
+    }
+  };
+
   return (
     <form
       onSubmit={onSubmit}
@@ -10,6 +17,7 @@ export default function ChatComposer({ value, onChange, onSubmit }) {
           <textarea
             value={value}
             onChange={(event) => onChange(event.target.value)}
+            onKeyDown={handleKeyDown}
             placeholder="Ask a question about your documents..."
             rows="3"
             className="min-h-24 w-full resize-none border-0 bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-400 dark:text-gray-100"

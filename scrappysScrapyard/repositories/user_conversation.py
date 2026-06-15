@@ -23,6 +23,19 @@ from schemas.user_conversation import (
     UserConversationUpdate,
 )
 
+
+def _conversation_name_from_message(message_text: str) -> str:
+    conversation_name = " ".join(message_text.split()).strip()
+    if not conversation_name:
+        return "New Conversation"
+
+    max_length = 60
+    if len(conversation_name) <= max_length:
+        return conversation_name
+
+    return f"{conversation_name[:max_length].rstrip()}..."
+
+
 async def _conversation_read(
     user_conversation: UserConversation,
     session: AsyncSession,
@@ -46,10 +59,11 @@ async def create_user_conversation(
     session: AsyncSession,
 ) -> UserConversationRead | None:
 
-    # TODO: Make the conversation_name dynamic based on the first message or something else in the future.
     new_user_conversation: dict[str, str | uuid.UUID | list[uuid.UUID] | None] = {
         "user_id": user_id,
-        "conversation_name": "New Conversation",
+        "conversation_name": _conversation_name_from_message(
+            user_conversation.user_message.message_text
+        ),
         "relevant_file_ids": user_conversation.relevant_file_ids,
         "openai_conversation_id": user_conversation.openai_conversation_id,
     }
