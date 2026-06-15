@@ -6,6 +6,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.conversation_message import ConversationMessage
 from models.user_conversation import UserConversation
+from repositories.openai import (
+    create_openai_conversation,
+    create_openai_response,
+    get_response_output_text,
+)
 from schemas.conversation_message import (
     ConversationMessageCreate,
     ConversationMessageRead,
@@ -185,10 +190,12 @@ async def create_llm_response_conversation_message(
     conversation_id: uuid.UUID,
     message_text: str,
     session: AsyncSession,
+    llm_message_id: str | None = None,
 ) -> ConversationMessageRead | None:
     conversation_message_create = ConversationMessageCreate(
         message_text=message_text,
         sender_is_agent=True,
+        llm_message_id=llm_message_id,
     )
 
     return await create_conversation_message(
@@ -196,6 +203,63 @@ async def create_llm_response_conversation_message(
         conversation_id=conversation_id,
         conversation_message=conversation_message_create,
         session=session,
+    )
+
+
+async def create_openai_response_conversation_message(
+    user_id: uuid.UUID,
+    conversation_id: uuid.UUID,
+    message_text: str,
+    session: AsyncSession,
+) -> ConversationMessageRead | None:
+    user_conversation = await session.scalar(
+        select(UserConversation).where(
+            UserConversation.user_id == user_id,
+            UserConversation.conversation_id == conversation_id,
+        )
+    )
+
+    if user_conversation is None:
+        return None
+
+    openai_conversation_id = user_conversation.openai_conversation_id
+    if openai_conversation_id is None:
+        openai_conversation = await create_openai_conversation(
+            metadata={
+                "user_id": str(user_id),
+                "conversation_id": str(conversation_id),
+            }
+        )
+        created_openai_conversation_id = openai_conversation.get("id")
+        if isinstance(created_openai_conversation_id, str):
+            openai_conversation_id = created_openai_conversation_id
+            await session.execute(
+                update(UserConversation)
+                .where(UserConversation.id == user_conversation.id)
+                .values(openai_conversation_id=openai_conversation_id)
+            )
+            await session.commit()
+
+    openai_response = await create_openai_response(
+        input=message_text,
+        conversation=openai_conversation_id,
+        metadata={
+            "user_id": str(user_id),
+            "conversation_id": str(conversation_id),
+        },
+    )
+    response_text = get_response_output_text(openai_response)
+    if not response_text:
+        response_text = "I could not generate a response."
+
+    response_id = openai_response.get("id")
+
+    return await create_llm_response_conversation_message(
+        user_id=user_id,
+        conversation_id=conversation_id,
+        message_text=response_text,
+        session=session,
+        llm_message_id=response_id if isinstance(response_id, str) else None,
     )
 
 

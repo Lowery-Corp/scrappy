@@ -5,10 +5,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth.dependencies import get_current_user
 from db.dependencies import get_session
+from repositories.openai import OpenAIRepositoryError
 from repositories.user_conversation import (
     create_conversation_message,
     create_user_conversation,
-    create_llm_response_conversation_message,
+    create_openai_response_conversation_message,
     delete_conversation_message,
     delete_user_conversation,
     get_conversation_message,
@@ -51,6 +52,22 @@ async def create_user_conversation_route(
             status_code=status.HTTP_409_CONFLICT,
             detail="Conversation already exists or violates a database constraint",
         )
+
+    try:
+        response_with_llm = await create_openai_response_conversation_message(
+            user_id=uuid.UUID(current_user.id),
+            conversation_id=created_user_conversation.conversation_id,
+            message_text=user_conversation.user_message.message_text,
+            session=session,
+        )
+    except OpenAIRepositoryError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(exc),
+        ) from exc
+
+    if response_with_llm is not None:
+        created_user_conversation.conversation_messages.append(response_with_llm)
 
     return created_user_conversation
 
@@ -147,9 +164,7 @@ async def create_conversation_message_route(
     conversation_message: ConversationMessageCreate,
     current_user: AuthorizedUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
-) -> bool:
-
-    new_responses: list[ConversationMessageRead] = []
+) -> ConversationMessageRead:
 
     created_conversation_message = await create_conversation_message(
         user_id=uuid.UUID(current_user.id),
@@ -162,23 +177,27 @@ async def create_conversation_message_route(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Conversation not found",
         )
-    assert created_conversation_message is not None, "Failed to create conversation message"
-    new_responses.append(created_conversation_message)
 
-    response_with_llm = await create_llm_response_conversation_message(
-        user_id=uuid.UUID(current_user.id),
-        conversation_id=conversation_id,
-        message_text=f"Response to: {created_conversation_message.message_text}",
-        session=session,
-    )
+    try:
+        response_with_llm = await create_openai_response_conversation_message(
+            user_id=uuid.UUID(current_user.id),
+            conversation_id=conversation_id,
+            message_text=created_conversation_message.message_text,
+            session=session,
+        )
+    except OpenAIRepositoryError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(exc),
+        ) from exc
+
     if response_with_llm is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Conversation not found",
         )
-    new_responses.append(response_with_llm)
 
-    return True
+    return response_with_llm
 
 
 @router.get("/{conversation_id}/messages", response_model=list[ConversationMessageRead])
