@@ -52,6 +52,7 @@ scrappysScrapyard FastAPI API
   +--> PostgreSQL with pgvector
   +--> Redis cache
   +--> Celery/offload task publisher when configured
+  +--> OpenAI Responses/Conversations API through the OpenAI repository
   +--> External/object storage integrations through repository/client modules
 ```
 
@@ -118,7 +119,7 @@ scrappysHouse/src/
 | `src/components/` | Reusable UI and workflow components. |
 | `src/layouts/` | Route layout components for grouped pages. |
 | `src/pages/` | Route-level page components. |
-| `src/services/` | Browser-side API clients and service wrappers. |
+| `src/services/` | Browser-side API clients and service wrappers, including Axios JSON calls and fetch-based chat streaming helpers. |
 
 ### Frontend Routing Pattern
 
@@ -132,7 +133,7 @@ Routes are declared in `src/App.jsx`.
 | `/about` | Public about page. |
 | `/`, `/home` | Authenticated home page. |
 | `/store` | Authenticated file store page. |
-| `/document-chat` | Authenticated document chat page. |
+| `/chat/:conversationId?` | Authenticated document chat page. Optional conversation id selects an existing chat; `/chat/new` starts a new chat. |
 | `*` | Not found page. |
 
 Protected routes are handled through `src/components/ProtectedRoute.jsx`, using auth state from `src/auth/AuthProvider.jsx`.
@@ -158,8 +159,16 @@ Protected routes are handled through `src/components/ProtectedRoute.jsx`, using 
 | --- | --- |
 | `ChatPanelHeader.jsx` | Header and controls for the active chat panel. |
 | `ChatSidebar.jsx` | Conversation list and selection controls. |
-| `ChatThread.jsx` | Message thread display. |
-| `ChatComposer.jsx` | Message input and send workflow. |
+| `ChatThread.jsx` | Message thread display, including streamed/pending agent response state. |
+| `ChatComposer.jsx` | Message input and send workflow. Plain Enter submits; Shift+Enter keeps textarea newline behavior. |
+
+
+Document chat frontend behavior:
+
+- `src/pages/DocumentChat.jsx` owns chat state, optimistic message insertion, active conversation routing, and stream event handling.
+- New and existing chat sends append the user message immediately and show a pending agent bubble while the backend streams text deltas.
+- The final streamed agent message replaces the pending bubble after the backend persists it.
+- `src/services/user_conversations.jsx` keeps standard JSON API helpers and adds fetch-based streaming helpers for Server-Sent Event responses.
 
 For new apps using this structure:
 
@@ -214,7 +223,7 @@ scrappysScrapyard/
 | `middleware/` | Custom request middleware, currently request ID handling. |
 | `models/` | SQLAlchemy ORM models. |
 | `offload_tasks/` | Celery application configuration for publishing/handling background offload tasks when a broker and worker are configured. |
-| `repositories/` | Data access and integration layer for database records, auth, MinIO, file store, offload tasks, and token blacklist operations. |
+| `repositories/` | Data access and integration layer for database records, auth, MinIO, file store, OpenAI, offload tasks, and token blacklist operations. |
 | `schemas/` | Pydantic schemas for request/response validation. |
 | `alembic/` | Database migration environment and migration versions. |
 
@@ -246,7 +255,17 @@ api/
 | `file_chunks.router` | `/api/v1/file-chunks` | Admin-only file chunk CRUD and filtering. |
 | `file_jobs.router` | `/api/v1/file-jobs` | Admin-only file job CRUD and filtering. |
 | `user_files.router` | `/api/v1/files` | Admin-only user file metadata CRUD and lookup. |
-| `user_conversations.router` | `/api/v1/conversations` | Authenticated user conversations and nested conversation messages. |
+| `user_conversations.router` | `/api/v1/conversations` | Authenticated user conversations, nested conversation messages, and chat streaming endpoints. |
+
+
+Conversation API conventions:
+
+- JSON endpoints remain available for standard conversation and message CRUD.
+- Streaming endpoints live beside the existing conversation routes:
+  - `POST /api/v1/conversations/stream` creates a conversation and streams the first agent response.
+  - `POST /api/v1/conversations/{conversation_id}/messages/stream` creates a user message and streams the agent response.
+- Streaming responses use Server-Sent Events with small event payloads such as `conversation`, `user_message`, `delta`, `message`, `error`, and `done`.
+- Endpoint functions stay thin: they create user records, translate repository errors into HTTP/SSE errors, and delegate OpenAI work to repositories.
 
 For new apps using this structure:
 
@@ -283,6 +302,14 @@ Directory responsibilities:
 | Persistence models | `models/` | SQLAlchemy table definitions and relationships. |
 | Data contracts | `schemas/` | Pydantic request and response models. |
 | Migrations | `alembic/versions/` | Incremental database schema changes. |
+
+
+Conversation repository conventions:
+
+- `repositories/user_conversation.py` owns conversation/message persistence, dynamic conversation naming from the first user message, and saving completed agent messages.
+- Conversation names are generated from normalized first-message text, truncated for sidebar display, with `New Conversation` as the empty-message fallback.
+- `repositories/openai.py` owns OpenAI HTTP integration for conversations, non-streaming responses, streaming response parsing, and output text extraction.
+- The repository layer bridges streamed OpenAI deltas to persisted `conversation_message` rows only after the final response is complete.
 
 ## Database And Migrations
 
