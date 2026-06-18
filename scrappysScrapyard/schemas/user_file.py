@@ -37,19 +37,19 @@ class UserFileUpdate(BaseModel):
 class UserFileRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    # id: int
     file_id: uuid.UUID
     user_id: uuid.UUID
-    original_filename: str
+    # original_filename: str
     storage_key: str
     mime_type: str | None
     file_size_bytes: int | None
-    checksum_sha256: str | None
+    # checksum_sha256: str | None
     status: str
-    error_message: str | None
-    uploaded_at: datetime
-    parsed_at: datetime | None
-    indexed_at: datetime | None
-    ready_at: datetime | None
+    # error_message: str | None
+    # uploaded_at: datetime
+    # parsed_at: datetime | None
+    # indexed_at: datetime | None
+    # ready_at: datetime | None
     created_at: datetime
     updated_at: datetime

@@ -68,7 +68,6 @@ export default function FileStore() {
       setIsLoading(true);
 
       const response = await getBucketStructure();
-      console.log("bucket structure response:", response);
 
       const structure = response?.bucket_structure ?? response ?? {};
       const currentFolder = getNodeAtPath(structure, currentPath);

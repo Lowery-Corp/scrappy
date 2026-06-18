@@ -2,10 +2,12 @@ import { useMemo, useRef, useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { getUserConversations, getConversationMessages, createConversationStream, deleteConversations, sendMessageStream } from "../services/user_conversations";
+import { getUserFiles } from "../services/blob";
 import ChatComposer from "../components/documentChat/ChatComposer";
 import ChatPanelHeader from "../components/documentChat/ChatPanelHeader";
 import ChatSidebar from "../components/documentChat/ChatSidebar";
 import ChatThread from "../components/documentChat/ChatThread";
+import ChatFileSelector from "../components/documentChat/ChatFileSelector";
 
 const createOptimisticMessage = ({ messageText, senderIsAgent, isLoading = false }) => ({
   id: `optimistic-${Date.now()}-${Math.random()}`,
@@ -22,6 +24,8 @@ export default function DocumentChat() {
   const navigate = useNavigate();
   const { conversationId } = useParams();
 
+  const [userFiles, setUserFiles] = useState([]);
+  const [selectedFileIds, setSelectedFilesIds] = useState([]);
   const [userChats, setUserChats] = useState([]);
   const [draftMessage, setDraftMessage] = useState("");
   const [messages, setMessages] = useState([]);
@@ -60,12 +64,23 @@ export default function DocumentChat() {
     }
   };
 
+  const loadUserFiles = async () => {
+    try {
+      const files = await getUserFiles();
+      // console.log("Loaded user files:", files);
+      setUserFiles(files);
+    } catch (error) {
+      console.error("Failed to load user files:", error);
+      setUserFiles([]);
+    }
+  }
+
   useEffect(() => {
     loadUserConversations();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    loadUserFiles();
+    console.log("BOOM", userFiles);
   }, [conversationId]);
 
-  // TODO: add websocket or polling to sync chats in real-time
   const handleConversionSync = async () => {
     await loadUserConversations();
   };
@@ -244,6 +259,20 @@ export default function DocumentChat() {
     setMessages(conversationMessages);
   };
 
+  const updateChatFiles = (conversationId, fileIds) => {
+
+  };
+
+  const handleFileSelect = (fileId) => {
+    setSelectedFilesIds((previousSelected) => {
+      if (previousSelected.includes(fileId)) {
+        return previousSelected.filter((id) => id !== fileId);
+      } else {
+        return [...previousSelected, fileId];
+      }
+    });
+  };
+
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
       <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-7xl flex-col gap-4 px-4 py-6 lg:flex-row lg:gap-6 lg:py-8">
@@ -272,6 +301,11 @@ export default function DocumentChat() {
             onSubmit={handleSubmit}
           />
         </section>
+        <ChatFileSelector
+          userFiles={userFiles}
+          selectedFileIds={selectedFileIds}
+          onFileSelect={handleFileSelect}
+        />
       </div>
     </div>
   );
