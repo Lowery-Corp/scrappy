@@ -14,13 +14,6 @@ export default function ChatPanelHeader({ chat }) {
             {conversationName}
           </h2>
         </div>
-
-        <button
-          type="button"
-          className="w-full rounded-md border border-purple-200 bg-purple-50 px-4 py-2 text-sm font-medium text-purple-700 transition-colors hover:bg-purple-100 dark:border-purple-800 dark:bg-purple-950/40 dark:text-purple-200 dark:hover:bg-purple-900/50 md:w-auto"
-        >
-          Upload Documents
-        </button>
       </div>
     </header>
   );

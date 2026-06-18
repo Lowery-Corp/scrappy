@@ -51,7 +51,11 @@ async def list_user_files_route(
     current_user: AuthorizedUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> list[UserFileRead]:
-    require_admin_user(current_user)
+    if not current_user.is_admin:
+        user_id = uuid.UUID(current_user.id)
+    else:
+        require_admin_user(current_user)
+
 
     user_files = await list_user_files(
         session=session,

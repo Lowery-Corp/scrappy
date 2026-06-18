@@ -70,3 +70,13 @@ export const bulkDeleteFiles = async (folder_path) => {
     throw error;
   }
 };
+
+export const getUserFiles = async () => {
+  try {
+    const response = await api.get("/api/v1/files");
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching user files:", error);
+    throw error;
+  }
+};

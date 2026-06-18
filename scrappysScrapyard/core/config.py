@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     rabbitmq_default_pass: str
 
     internal_cookie: str | None = None
+    openai_api_key: str | None = None
+    openai_api_url: str = "https://api.openai.com"
+    openai_default_model: str = "gpt-5.5"
 
     model_config = SettingsConfigDict(env_file=".env")
 

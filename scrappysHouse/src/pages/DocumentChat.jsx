@@ -1,138 +1,378 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useRef, useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
-import { getUserConversations, createConversation, deleteConversations } from "../services/user_conversations";
+import {
+  addFilesToConversation,
+  getUserConversations,
+  getConversationMessages,
+  createConversationStream,
+  deleteConversations,
+  sendMessageStream,
+} from "../services/user_conversations";
+import { getUserFiles } from "../services/blob";
 import ChatComposer from "../components/documentChat/ChatComposer";
 import ChatPanelHeader from "../components/documentChat/ChatPanelHeader";
 import ChatSidebar from "../components/documentChat/ChatSidebar";
 import ChatThread from "../components/documentChat/ChatThread";
+import ChatFileSelector from "../components/documentChat/ChatFileSelector";
+
+const createOptimisticMessage = ({
+  messageText,
+  senderIsAgent,
+  isLoading = false,
+}) => ({
+  id: `optimistic-${Date.now()}-${Math.random()}`,
+  user_conversation_id: 0,
+  message_text: messageText,
+  sender_is_agent: senderIsAgent,
+  llm_message_id: null,
+  created_at: new Date().toISOString(),
+  is_loading: isLoading,
+});
 
 export default function DocumentChat() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { conversationId } = useParams();
 
+  const [userFiles, setUserFiles] = useState([]);
+  const [selectedFileIds, setSelectedFilesIds] = useState([]);
   const [userChats, setUserChats] = useState([]);
-  const [activeChatId, setActiveChatId] = useState(null);
   const [draftMessage, setDraftMessage] = useState("");
   const [messages, setMessages] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [multipleSelectedChatIds, setMultipleSelectedChatIds] = useState([]);
   const [multiSelectMode, setMultiSelectMode] = useState(false);
 
+  const activeChatId =
+    conversationId && conversationId !== "new" ? conversationId : null;
+
+  const streamingConversationId = useRef(null);
+
+  const activeChat = useMemo(() => {
+    if (!activeChatId || userChats.length === 0) {
+      return null;
+    }
+
+    return (
+      userChats.find((chat) => chat.conversation_id === activeChatId) ?? null
+    );
+  }, [userChats, activeChatId]);
+
+  const activeChatFileCount = selectedFileIds.length;
+
+  useEffect(() => {
+    setSelectedFilesIds(activeChat?.relevant_file_ids ?? []);
+  }, [activeChat]);
+
+  const handleChatReset = () => {
+    setMessages([]);
+    setSelectedFilesIds([]);
+    navigate("/chat/new");
+  };
+
   const loadUserConversations = async () => {
     try {
-      setIsLoading(true);
-
       const conversations = await getUserConversations();
-      console.log("Fetched conversations:", conversations);
 
       const safeConversations = Array.isArray(conversations)
         ? conversations
         : [];
 
       setUserChats(safeConversations);
+
+      if (conversationId && conversationId !== "new") {
+        if (streamingConversationId.current === conversationId) {
+          return;
+        }
+
+        const conversationMessages = await getConversationMessages(
+          conversationId,
+        );
+
+        setMessages(conversationMessages);
+      } else {
+        setMessages([]);
+        setSelectedFilesIds([]);
+      }
     } catch (error) {
       console.error("Failed to load user conversations:", error);
       setUserChats([]);
-      setActiveChatId(null);
-    } finally {
-      setIsLoading(false);
+    }
+  };
+
+  const loadUserFiles = async () => {
+    try {
+      const files = await getUserFiles();
+      setUserFiles(Array.isArray(files) ? files : []);
+    } catch (error) {
+      console.error("Failed to load user files:", error);
+      setUserFiles([]);
     }
   };
 
   useEffect(() => {
-    if (conversationId) {
-      setActiveChatId(conversationId);
-    } else {
-      setActiveChatId("new-chat");
-    }
     loadUserConversations();
+    loadUserFiles();
   }, [conversationId]);
 
-  // TODO: add websocket or polling to sync chats in real-time
   const handleConversionSync = async () => {
     await loadUserConversations();
   };
 
-  const activeChat = useMemo(() => {
-    if (userChats.length === 0) {
-      return null;
+  const handleNewMessage = async (message) => {
+    const trimmedMessage = message.trim();
+
+    if (!trimmedMessage) {
+      return;
     }
 
-    return (
-      userChats.find((chat) => chat.conversation_id === activeChatId)
-      // userChats[0]
-    );
-  }, [userChats, activeChatId]);
-
-  const handleNewMessage = (message) => {
-    createConversation({
-      user_message: {"message_text": message, "sender_id_agent": false},
-      relevant_file_ids: [],
-    })
-    .then(() => {
-      setDraftMessage("");
-      handleConversionSync();
-    })
-    .catch((error) => {
-      console.error("Failed to send message:", error);
+    const optimisticUserMessage = createOptimisticMessage({
+      messageText: trimmedMessage,
+      senderIsAgent: false,
     });
-  }
+
+    const optimisticAgentMessage = createOptimisticMessage({
+      messageText: "",
+      senderIsAgent: true,
+      isLoading: true,
+    });
+
+    const appendAgentDelta = ({ text }) => {
+      setMessages((previousMessages) =>
+        previousMessages.map((message) =>
+          message.id === optimisticAgentMessage.id
+            ? {
+                ...message,
+                message_text: `${message.message_text}${text}`,
+                is_loading: false,
+              }
+            : message,
+        ),
+      );
+    };
+
+    const replaceAgentMessage = (agentMessage) => {
+      setMessages((previousMessages) =>
+        previousMessages.map((message) =>
+          message.id === optimisticAgentMessage.id ? agentMessage : message,
+        ),
+      );
+    };
+
+    const showAgentError = () => {
+      setMessages((previousMessages) =>
+        previousMessages.map((message) =>
+          message.id === optimisticAgentMessage.id
+            ? {
+                ...message,
+                message_text: "Failed to get a response.",
+                is_loading: false,
+              }
+            : message,
+        ),
+      );
+    };
+
+    setDraftMessage("");
+    setMessages((previousMessages) => [
+      ...previousMessages,
+      optimisticUserMessage,
+      optimisticAgentMessage,
+    ]);
+
+    if (!activeChatId) {
+      try {
+        await createConversationStream(
+          {
+            user_message: {
+              message_text: trimmedMessage,
+              sender_is_agent: false,
+            },
+            relevant_file_ids: [],
+          },
+          {
+            conversation: (conversation) => {
+              streamingConversationId.current = conversation.conversation_id;
+
+              setUserChats((previousChats) => [
+                conversation,
+                ...previousChats.filter(
+                  (chat) =>
+                    chat.conversation_id !== conversation.conversation_id,
+                ),
+              ]);
+
+              setMessages([
+                ...(conversation.conversation_messages ?? []),
+                optimisticAgentMessage,
+              ]);
+
+              navigate(`/chat/${conversation.conversation_id}`, {
+                replace: true,
+              });
+            },
+            delta: appendAgentDelta,
+            message: replaceAgentMessage,
+            done: () => {
+              streamingConversationId.current = null;
+            },
+          },
+        );
+      } catch (error) {
+        streamingConversationId.current = null;
+        console.error("Failed to send message:", error);
+        showAgentError();
+      }
+    } else {
+      try {
+        await sendMessageStream(
+          activeChatId,
+          {
+            message_text: trimmedMessage,
+            sender_is_agent: false,
+          },
+          {
+            user_message: (createdUserMessage) => {
+              setMessages((previousMessages) =>
+                previousMessages.map((message) =>
+                  message.id === optimisticUserMessage.id
+                    ? createdUserMessage
+                    : message,
+                ),
+              );
+            },
+            delta: appendAgentDelta,
+            message: replaceAgentMessage,
+          },
+        );
+
+        await handleConversionSync();
+      } catch (error) {
+        console.error("Failed to send message:", error);
+        showAgentError();
+      }
+    }
+  };
 
   const handleSubmit = (event) => {
     event.preventDefault();
     handleNewMessage(draftMessage);
-    setDraftMessage("");
   };
 
   const newChat = () => {
     if (!user) {
       console.warn("No user found, cannot create new chat");
+      navigate("/login");
+      return false;
+    }
+
+    handleChatReset();
+
+    return true;
+  };
+
+  const deleteChat = (conversationIds) => {
+    setUserChats((previousChats) =>
+      previousChats.filter(
+        (chat) => !conversationIds.includes(chat.conversation_id),
+      ),
+    );
+
+    deleteConversations(conversationIds)
+      .then(() => {
+        handleChatReset();
+      })
+      .catch((error) => {
+        console.error("Failed to delete conversations:", error);
+        loadUserConversations();
+      });
+  };
+
+  const handleSelectChat = async (conversationId) => {
+    const selectedChat =
+      userChats.find((chat) => chat.conversation_id === conversationId) ??
+      null;
+
+    setSelectedFilesIds(selectedChat?.relevant_file_ids ?? []);
+
+    navigate(`/chat/${conversationId}`);
+
+    try {
+      const conversationMessages = await getConversationMessages(conversationId);
+      setMessages(conversationMessages);
+    } catch (error) {
+      console.error("Failed to load conversation messages:", error);
+      setMessages([]);
+    }
+  };
+
+  const updateChatFiles = async (conversationId, fileId) => {
+    const updatedConversation = await addFilesToConversation(
+      conversationId,
+      fileId,
+    );
+
+    if (updatedConversation?.relevant_file_ids) {
+      setUserChats((previousChats) =>
+        previousChats.map((chat) =>
+          chat.conversation_id === conversationId
+            ? {
+                ...chat,
+                relevant_file_ids: updatedConversation.relevant_file_ids,
+              }
+            : chat,
+        ),
+      );
+
+      setSelectedFilesIds(updatedConversation.relevant_file_ids);
+    }
+
+    return updatedConversation;
+  };
+
+  const handleFileSelect = async (fileId) => {
+    if (!activeChatId) {
+      console.warn("No active chat selected");
       return;
     }
 
-    for (const chat of userChats) {
-      if (chat.conversation_name === "New Chat" && chat.preview === "") {
-        return;
-      }
-    }
+    const previousSelectedFileIds = selectedFileIds;
 
-    // userChats.unshift({
-    //   conversation_id: `temp-id-${Date.now()}`,
-    //   conversation_name: "New Chat",
-    //   preview: "",
-    //   relevant_file_ids: [],
-    //   updated_at: new Date().toISOString(),
-    // });
-    // setUserChats([...userChats]);
-    setActiveChatId(null);
-    return true;
-  }
+    const nextSelectedFileIds = previousSelectedFileIds.includes(fileId)
+      ? previousSelectedFileIds.filter((id) => id !== fileId)
+      : [...previousSelectedFileIds, fileId];
 
-  const deleteChat = (conversationIds) => {
+    setSelectedFilesIds(nextSelectedFileIds);
 
-    for (const conversationId of conversationIds) {
-      console.log("Delete chat with ID:", conversationId);
-      const index = userChats.findIndex(
-        (chat) => chat.conversation_id === conversationId
+    setUserChats((previousChats) =>
+      previousChats.map((chat) =>
+        chat.conversation_id === activeChatId
+          ? {
+              ...chat,
+              relevant_file_ids: nextSelectedFileIds,
+            }
+          : chat,
+      ),
+    );
+
+    try {
+      await updateChatFiles(activeChatId, fileId);
+    } catch (error) {
+      console.error("Failed to update files on conversation:", error);
+
+      setSelectedFilesIds(previousSelectedFileIds);
+
+      setUserChats((previousChats) =>
+        previousChats.map((chat) =>
+          chat.conversation_id === activeChatId
+            ? {
+                ...chat,
+                relevant_file_ids: previousSelectedFileIds,
+              }
+            : chat,
+        ),
       );
-      if (index !== -1) {
-        userChats.splice(index, 1);
-        setUserChats([...userChats]);
-        if (activeChatId === conversationId) {
-          setActiveChatId(userChats.length > 0 ? userChats[0].conversation_id : null);
-        }
-      }
     }
-    deleteConversations(conversationIds).catch((error) => {
-      console.error("Failed to delete conversations:", error);
-    });
-  };
-
-  const handleSelectChat = (conversationId) => {
-    setActiveChatId(conversationId);
-    navigate(`/chat/${conversationId}`);
   };
 
   return (
@@ -150,8 +390,12 @@ export default function DocumentChat() {
           setMultiSelectMode={setMultiSelectMode}
         />
 
-        <section className="flex min-h-[680px] flex-1 flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white/90 shadow-xl dark:border-gray-700 dark:bg-gray-800/90">
-          <ChatPanelHeader chat={activeChat} />
+        <section className="flex h-[calc(100vh-7rem)] min-h-[520px] flex-1 flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white/90 shadow-xl dark:border-gray-700 dark:bg-gray-800/90 lg:h-[calc(100vh-8rem)]">
+          <ChatPanelHeader
+            chat={activeChat}
+            activeChatFileCount={activeChatFileCount}
+          />
+
           <ChatThread
             messages={messages}
             username={user?.username ?? "your account"}
@@ -163,6 +407,12 @@ export default function DocumentChat() {
             onSubmit={handleSubmit}
           />
         </section>
+
+        <ChatFileSelector
+          userFiles={userFiles}
+          selectedFileIds={selectedFileIds}
+          onFileSelect={handleFileSelect}
+        />
       </div>
     </div>
   );

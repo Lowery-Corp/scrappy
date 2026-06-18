@@ -1,8 +1,14 @@
+import { useEffect, useRef } from "react";
+
 export default function ChatThread({ messages, username }) {
-  console.log("Adding new message to thread:", messages);
+  const bottomRef = useRef(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ block: "end" });
+  }, [messages]);
 
   return (
-    <div className="flex-1 space-y-5 overflow-y-auto p-5 text-left">
+    <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5 text-left">
       <div className="rounded-xl border border-dashed border-purple-300 bg-purple-50/80 p-4 dark:border-purple-800 dark:bg-purple-950/30">
         <p className="text-sm font-semibold text-purple-800 dark:text-purple-200">
           RAG workspace for {username}
@@ -14,6 +20,7 @@ export default function ChatThread({ messages, username }) {
 
       {messages.map((message) => {
         const isUser = message.sender_is_agent === false;
+        const isLoading = message.is_loading === true;
 
         return (
           <div
@@ -26,9 +33,18 @@ export default function ChatThread({ messages, username }) {
                   ? "bg-purple-600 text-white"
                   : "border border-gray-200 bg-gray-50 text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
               }`}
+              aria-live={isLoading ? "polite" : undefined}
             >
-              <p className="text-sm leading-6">{message.message_text}</p>
-              {!isUser && message.sources?.length > 0 && (
+              {isLoading ? (
+                <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-300">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-purple-500" />
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-purple-500 delay-100" />
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-purple-500 delay-200" />
+                </div>
+              ) : (
+                <p className="text-sm leading-6">{message.message_text}</p>
+              )}
+              {!isUser && !isLoading && message.sources?.length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-2">
                   {message.sources.map((source) => (
                     <span
@@ -44,6 +60,7 @@ export default function ChatThread({ messages, username }) {
           </div>
         );
       })}
+      <div ref={bottomRef} aria-hidden="true" />
     </div>
   );
 }

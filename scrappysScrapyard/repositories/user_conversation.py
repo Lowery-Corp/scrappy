@@ -6,6 +6,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.conversation_message import ConversationMessage
 from models.user_conversation import UserConversation
+from repositories.openai import (
+    create_openai_conversation,
+    create_openai_response,
+    get_response_output_text,
+    stream_openai_response_text,
+)
 from schemas.conversation_message import (
     ConversationMessageCreate,
     ConversationMessageRead,
@@ -18,6 +24,18 @@ from schemas.user_conversation import (
 )
 
 
+def _conversation_name_from_message(message_text: str) -> str:
+    conversation_name = " ".join(message_text.split()).strip()
+    if not conversation_name:
+        return "New Conversation"
+
+    max_length = 60
+    if len(conversation_name) <= max_length:
+        return conversation_name
+
+    return f"{conversation_name[:max_length].rstrip()}..."
+
+
 async def _conversation_read(
     user_conversation: UserConversation,
     session: AsyncSession,
@@ -25,7 +43,7 @@ async def _conversation_read(
 ) -> UserConversationRead:
     conversation_read = UserConversationRead.model_validate(user_conversation)
 
-    if include_messages:
+    if include_messages is True:
         conversation_read.conversation_messages = await list_conversation_messages(
             user_id=user_conversation.user_id,
             conversation_id=user_conversation.conversation_id,
@@ -40,30 +58,44 @@ async def create_user_conversation(
     user_conversation: UserConversationCreate,
     session: AsyncSession,
 ) -> UserConversationRead | None:
-    create_values = user_conversation.model_dump(exclude_none=True)
-    create_values["user_id"] = user_id
+
+    new_user_conversation: dict[str, str | uuid.UUID | list[uuid.UUID] | None] = {
+        "user_id": user_id,
+        "conversation_name": _conversation_name_from_message(
+            user_conversation.user_message.message_text
+        ),
+        "relevant_file_ids": user_conversation.relevant_file_ids,
+        "openai_conversation_id": user_conversation.openai_conversation_id,
+    }
 
     try:
         created_user_conversation = await session.scalar(
             insert(UserConversation)
-            .values(**create_values)
+            .values(**new_user_conversation)
             .returning(UserConversation)
         )
         await session.commit()
+        assert created_user_conversation is not None, "Failed to create user conversation"
+
+        user_conversation_id = created_user_conversation.conversation_id
+
+        new_conversation_message = await create_conversation_message(
+            user_id=user_id,
+            conversation_id=user_conversation_id,
+            conversation_message=user_conversation.user_message,
+            session=session,
+        )
+        assert new_conversation_message is not None, "Failed to create initial conversation message"
+
+        return await _conversation_read(created_user_conversation, session=session, include_messages=True)
     except IntegrityError:
         await session.rollback()
         return None
-
-    if created_user_conversation is None:
-        return None
-
-    return await _conversation_read(created_user_conversation, session=session)
 
 
 async def list_user_conversations(
     user_id: uuid.UUID,
     session: AsyncSession,
-    get_messages: bool = False,
     limit: int = 50,
     offset: int = 0,
 ) -> list[UserConversationRead]:
@@ -79,7 +111,6 @@ async def list_user_conversations(
         await _conversation_read(
             user_conversation,
             session=session,
-            include_messages=get_messages,
         )
         for user_conversation in result
     ]
@@ -146,6 +177,51 @@ async def update_user_conversation(
     return await _conversation_read(updated_user_conversation, session=session)
 
 
+async def update_user_conversation_files(
+    user_id: uuid.UUID,
+    conversation_id: uuid.UUID,
+    file_id: uuid.UUID,
+    session: AsyncSession,
+) -> UserConversationRead | None:
+    existing_user_conversation = await session.scalar(
+        select(UserConversation).where(
+            UserConversation.user_id == user_id,
+            UserConversation.conversation_id == conversation_id,
+        )
+    )
+
+    if existing_user_conversation is None:
+        return None
+
+    existing_conversation_files = existing_user_conversation.relevant_file_ids or []
+
+    if file_id in existing_conversation_files:
+        existing_conversation_files = [
+            existing_file_id
+            for existing_file_id in existing_conversation_files
+            if existing_file_id != file_id
+        ]
+    else:
+        existing_conversation_files.append(file_id)
+
+    try:
+        updated_user_conversation = await session.scalar(
+            update(UserConversation)
+            .where(UserConversation.id == existing_user_conversation.id)
+            .values(relevant_file_ids=existing_conversation_files)
+            .returning(UserConversation)
+        )
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        return None
+
+    if updated_user_conversation is None:
+        return None
+
+    return await _conversation_read(updated_user_conversation, session=session)
+
+
 async def delete_user_conversation(
     user_id: uuid.UUID,
     conversation_id: uuid.UUID,
@@ -167,6 +243,127 @@ async def delete_user_conversation(
     await session.commit()
 
     return True
+
+
+async def create_llm_response_conversation_message(
+    user_id: uuid.UUID,
+    conversation_id: uuid.UUID,
+    message_text: str,
+    session: AsyncSession,
+    llm_message_id: str | None = None,
+) -> ConversationMessageRead | None:
+    conversation_message_create = ConversationMessageCreate(
+        message_text=message_text,
+        sender_is_agent=True,
+        llm_message_id=llm_message_id,
+    )
+
+    return await create_conversation_message(
+        user_id=user_id,
+        conversation_id=conversation_id,
+        conversation_message=conversation_message_create,
+        session=session,
+    )
+
+
+async def get_or_create_openai_conversation_id(
+    user_id: uuid.UUID,
+    conversation_id: uuid.UUID,
+    session: AsyncSession,
+) -> str | None:
+    user_conversation = await session.scalar(
+        select(UserConversation).where(
+            UserConversation.user_id == user_id,
+            UserConversation.conversation_id == conversation_id,
+        )
+    )
+
+    if user_conversation is None:
+        return None
+
+    if user_conversation.openai_conversation_id is not None:
+        return user_conversation.openai_conversation_id
+
+    openai_conversation = await create_openai_conversation(
+        metadata={
+            "user_id": str(user_id),
+            "conversation_id": str(conversation_id),
+        }
+    )
+    openai_conversation_id = openai_conversation.get("id")
+    if not isinstance(openai_conversation_id, str):
+        return None
+
+    await session.execute(
+        update(UserConversation)
+        .where(UserConversation.id == user_conversation.id)
+        .values(openai_conversation_id=openai_conversation_id)
+    )
+    await session.commit()
+
+    return openai_conversation_id
+
+
+async def create_openai_response_conversation_message(
+    user_id: uuid.UUID,
+    conversation_id: uuid.UUID,
+    message_text: str,
+    session: AsyncSession,
+) -> ConversationMessageRead | None:
+    openai_conversation_id = await get_or_create_openai_conversation_id(
+        user_id=user_id,
+        conversation_id=conversation_id,
+        session=session,
+    )
+    if openai_conversation_id is None:
+        return None
+
+    openai_response = await create_openai_response(
+        input=message_text,
+        conversation=openai_conversation_id,
+        metadata={
+            "user_id": str(user_id),
+            "conversation_id": str(conversation_id),
+        },
+    )
+    response_text = get_response_output_text(openai_response)
+    if not response_text:
+        response_text = "I could not generate a response."
+
+    response_id = openai_response.get("id")
+
+    return await create_llm_response_conversation_message(
+        user_id=user_id,
+        conversation_id=conversation_id,
+        message_text=response_text,
+        session=session,
+        llm_message_id=response_id if isinstance(response_id, str) else None,
+    )
+
+
+async def stream_openai_response_conversation_text(
+    user_id: uuid.UUID,
+    conversation_id: uuid.UUID,
+    message_text: str,
+    session: AsyncSession,
+):
+    openai_conversation_id = await get_or_create_openai_conversation_id(
+        user_id=user_id,
+        conversation_id=conversation_id,
+        session=session,
+    )
+    if openai_conversation_id is None:
+        return
+
+    async for event in stream_openai_response_text(
+        input=message_text,
+        conversation=openai_conversation_id,
+        metadata={
+            "user_id": str(user_id),
+            "conversation_id": str(conversation_id),
+        },
+    ):
+        yield event
 
 
 async def create_conversation_message(
@@ -191,6 +388,7 @@ async def create_conversation_message(
             user_conversation_id=user_conversation.id,
             message_text=conversation_message.message_text,
             sender_is_agent=conversation_message.sender_is_agent,
+            llm_message_id=conversation_message.llm_message_id,
         )
         .returning(ConversationMessage)
     )
