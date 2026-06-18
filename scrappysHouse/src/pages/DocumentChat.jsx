@@ -1,7 +1,14 @@
 import { useMemo, useRef, useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
-import { getUserConversations, getConversationMessages, createConversationStream, deleteConversations, sendMessageStream } from "../services/user_conversations";
+import {
+  addFilesToConversation,
+  getUserConversations,
+  getConversationMessages,
+  createConversationStream,
+  deleteConversations,
+  sendMessageStream,
+} from "../services/user_conversations";
 import { getUserFiles } from "../services/blob";
 import ChatComposer from "../components/documentChat/ChatComposer";
 import ChatPanelHeader from "../components/documentChat/ChatPanelHeader";
@@ -9,7 +16,11 @@ import ChatSidebar from "../components/documentChat/ChatSidebar";
 import ChatThread from "../components/documentChat/ChatThread";
 import ChatFileSelector from "../components/documentChat/ChatFileSelector";
 
-const createOptimisticMessage = ({ messageText, senderIsAgent, isLoading = false }) => ({
+const createOptimisticMessage = ({
+  messageText,
+  senderIsAgent,
+  isLoading = false,
+}) => ({
   id: `optimistic-${Date.now()}-${Math.random()}`,
   user_conversation_id: 0,
   message_text: messageText,
@@ -31,13 +42,33 @@ export default function DocumentChat() {
   const [messages, setMessages] = useState([]);
   const [multipleSelectedChatIds, setMultipleSelectedChatIds] = useState([]);
   const [multiSelectMode, setMultiSelectMode] = useState(false);
-  const activeChatId = conversationId && conversationId !== "new" ? conversationId : null;
+
+  const activeChatId =
+    conversationId && conversationId !== "new" ? conversationId : null;
+
   const streamingConversationId = useRef(null);
+
+  const activeChat = useMemo(() => {
+    if (!activeChatId || userChats.length === 0) {
+      return null;
+    }
+
+    return (
+      userChats.find((chat) => chat.conversation_id === activeChatId) ?? null
+    );
+  }, [userChats, activeChatId]);
+
+  const activeChatFileCount = selectedFileIds.length;
+
+  useEffect(() => {
+    setSelectedFilesIds(activeChat?.relevant_file_ids ?? []);
+  }, [activeChat]);
 
   const handleChatReset = () => {
     setMessages([]);
-    navigate(`/chat/new`);
-  }
+    setSelectedFilesIds([]);
+    navigate("/chat/new");
+  };
 
   const loadUserConversations = async () => {
     try {
@@ -48,15 +79,20 @@ export default function DocumentChat() {
         : [];
 
       setUserChats(safeConversations);
+
       if (conversationId && conversationId !== "new") {
         if (streamingConversationId.current === conversationId) {
           return;
         }
 
-        const conversationMessages = await getConversationMessages(conversationId);
+        const conversationMessages = await getConversationMessages(
+          conversationId,
+        );
+
         setMessages(conversationMessages);
       } else {
         setMessages([]);
+        setSelectedFilesIds([]);
       }
     } catch (error) {
       console.error("Failed to load user conversations:", error);
@@ -67,34 +103,21 @@ export default function DocumentChat() {
   const loadUserFiles = async () => {
     try {
       const files = await getUserFiles();
-      // console.log("Loaded user files:", files);
-      setUserFiles(files);
+      setUserFiles(Array.isArray(files) ? files : []);
     } catch (error) {
       console.error("Failed to load user files:", error);
       setUserFiles([]);
     }
-  }
+  };
 
   useEffect(() => {
     loadUserConversations();
     loadUserFiles();
-    console.log("BOOM", userFiles);
   }, [conversationId]);
 
   const handleConversionSync = async () => {
     await loadUserConversations();
   };
-
-  const activeChat = useMemo(() => {
-    if (userChats.length === 0) {
-      return null;
-    }
-
-    return (
-      userChats.find((chat) => chat.conversation_id === activeChatId)
-      // userChats[0]
-    );
-  }, [userChats, activeChatId]);
 
   const handleNewMessage = async (message) => {
     const trimmedMessage = message.trim();
@@ -107,6 +130,7 @@ export default function DocumentChat() {
       messageText: trimmedMessage,
       senderIsAgent: false,
     });
+
     const optimisticAgentMessage = createOptimisticMessage({
       messageText: "",
       senderIsAgent: true,
@@ -122,16 +146,16 @@ export default function DocumentChat() {
                 message_text: `${message.message_text}${text}`,
                 is_loading: false,
               }
-            : message
-        )
+            : message,
+        ),
       );
     };
 
     const replaceAgentMessage = (agentMessage) => {
       setMessages((previousMessages) =>
         previousMessages.map((message) =>
-          message.id === optimisticAgentMessage.id ? agentMessage : message
-        )
+          message.id === optimisticAgentMessage.id ? agentMessage : message,
+        ),
       );
     };
 
@@ -144,8 +168,8 @@ export default function DocumentChat() {
                 message_text: "Failed to get a response.",
                 is_loading: false,
               }
-            : message
-        )
+            : message,
+        ),
       );
     };
 
@@ -160,30 +184,39 @@ export default function DocumentChat() {
       try {
         await createConversationStream(
           {
-            user_message: { message_text: trimmedMessage, sender_is_agent: false },
+            user_message: {
+              message_text: trimmedMessage,
+              sender_is_agent: false,
+            },
             relevant_file_ids: [],
           },
           {
             conversation: (conversation) => {
               streamingConversationId.current = conversation.conversation_id;
+
               setUserChats((previousChats) => [
                 conversation,
                 ...previousChats.filter(
-                  (chat) => chat.conversation_id !== conversation.conversation_id
+                  (chat) =>
+                    chat.conversation_id !== conversation.conversation_id,
                 ),
               ]);
+
               setMessages([
                 ...(conversation.conversation_messages ?? []),
                 optimisticAgentMessage,
               ]);
-              navigate(`/chat/${conversation.conversation_id}`, { replace: true });
+
+              navigate(`/chat/${conversation.conversation_id}`, {
+                replace: true,
+              });
             },
             delta: appendAgentDelta,
             message: replaceAgentMessage,
             done: () => {
               streamingConversationId.current = null;
             },
-          }
+          },
         );
       } catch (error) {
         streamingConversationId.current = null;
@@ -202,21 +235,24 @@ export default function DocumentChat() {
             user_message: (createdUserMessage) => {
               setMessages((previousMessages) =>
                 previousMessages.map((message) =>
-                  message.id === optimisticUserMessage.id ? createdUserMessage : message
-                )
+                  message.id === optimisticUserMessage.id
+                    ? createdUserMessage
+                    : message,
+                ),
               );
             },
             delta: appendAgentDelta,
             message: replaceAgentMessage,
-          }
+          },
         );
+
         await handleConversionSync();
       } catch (error) {
         console.error("Failed to send message:", error);
         showAgentError();
       }
     }
-  }
+  };
 
   const handleSubmit = (event) => {
     event.preventDefault();
@@ -233,44 +269,110 @@ export default function DocumentChat() {
     handleChatReset();
 
     return true;
-  }
+  };
 
   const deleteChat = (conversationIds) => {
+    setUserChats((previousChats) =>
+      previousChats.filter(
+        (chat) => !conversationIds.includes(chat.conversation_id),
+      ),
+    );
 
-    for (const conversationId of conversationIds) {
-      const index = userChats.findIndex(
-        (chat) => chat.conversation_id === conversationId
-      );
-      if (index !== -1) {
-        userChats.splice(index, 1);
-        setUserChats([...userChats]);
-      }
-    }
-    deleteConversations(conversationIds).then(() => {
-      handleChatReset();
-    }).catch((error) => {
-      console.error("Failed to delete conversations:", error);
-    });
+    deleteConversations(conversationIds)
+      .then(() => {
+        handleChatReset();
+      })
+      .catch((error) => {
+        console.error("Failed to delete conversations:", error);
+        loadUserConversations();
+      });
   };
 
   const handleSelectChat = async (conversationId) => {
+    const selectedChat =
+      userChats.find((chat) => chat.conversation_id === conversationId) ??
+      null;
+
+    setSelectedFilesIds(selectedChat?.relevant_file_ids ?? []);
+
     navigate(`/chat/${conversationId}`);
-    const conversationMessages = await getConversationMessages(conversationId);
-    setMessages(conversationMessages);
+
+    try {
+      const conversationMessages = await getConversationMessages(conversationId);
+      setMessages(conversationMessages);
+    } catch (error) {
+      console.error("Failed to load conversation messages:", error);
+      setMessages([]);
+    }
   };
 
-  const updateChatFiles = (conversationId, fileIds) => {
+  const updateChatFiles = async (conversationId, fileId) => {
+    const updatedConversation = await addFilesToConversation(
+      conversationId,
+      fileId,
+    );
 
+    if (updatedConversation?.relevant_file_ids) {
+      setUserChats((previousChats) =>
+        previousChats.map((chat) =>
+          chat.conversation_id === conversationId
+            ? {
+                ...chat,
+                relevant_file_ids: updatedConversation.relevant_file_ids,
+              }
+            : chat,
+        ),
+      );
+
+      setSelectedFilesIds(updatedConversation.relevant_file_ids);
+    }
+
+    return updatedConversation;
   };
 
-  const handleFileSelect = (fileId) => {
-    setSelectedFilesIds((previousSelected) => {
-      if (previousSelected.includes(fileId)) {
-        return previousSelected.filter((id) => id !== fileId);
-      } else {
-        return [...previousSelected, fileId];
-      }
-    });
+  const handleFileSelect = async (fileId) => {
+    if (!activeChatId) {
+      console.warn("No active chat selected");
+      return;
+    }
+
+    const previousSelectedFileIds = selectedFileIds;
+
+    const nextSelectedFileIds = previousSelectedFileIds.includes(fileId)
+      ? previousSelectedFileIds.filter((id) => id !== fileId)
+      : [...previousSelectedFileIds, fileId];
+
+    setSelectedFilesIds(nextSelectedFileIds);
+
+    setUserChats((previousChats) =>
+      previousChats.map((chat) =>
+        chat.conversation_id === activeChatId
+          ? {
+              ...chat,
+              relevant_file_ids: nextSelectedFileIds,
+            }
+          : chat,
+      ),
+    );
+
+    try {
+      await updateChatFiles(activeChatId, fileId);
+    } catch (error) {
+      console.error("Failed to update files on conversation:", error);
+
+      setSelectedFilesIds(previousSelectedFileIds);
+
+      setUserChats((previousChats) =>
+        previousChats.map((chat) =>
+          chat.conversation_id === activeChatId
+            ? {
+                ...chat,
+                relevant_file_ids: previousSelectedFileIds,
+              }
+            : chat,
+        ),
+      );
+    }
   };
 
   return (
@@ -289,7 +391,11 @@ export default function DocumentChat() {
         />
 
         <section className="flex h-[calc(100vh-7rem)] min-h-[520px] flex-1 flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white/90 shadow-xl dark:border-gray-700 dark:bg-gray-800/90 lg:h-[calc(100vh-8rem)]">
-          <ChatPanelHeader chat={activeChat} />
+          <ChatPanelHeader
+            chat={activeChat}
+            activeChatFileCount={activeChatFileCount}
+          />
+
           <ChatThread
             messages={messages}
             username={user?.username ?? "your account"}
@@ -301,6 +407,7 @@ export default function DocumentChat() {
             onSubmit={handleSubmit}
           />
         </section>
+
         <ChatFileSelector
           userFiles={userFiles}
           selectedFileIds={selectedFileIds}

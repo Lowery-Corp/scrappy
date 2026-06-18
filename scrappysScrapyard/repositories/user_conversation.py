@@ -177,6 +177,51 @@ async def update_user_conversation(
     return await _conversation_read(updated_user_conversation, session=session)
 
 
+async def update_user_conversation_files(
+    user_id: uuid.UUID,
+    conversation_id: uuid.UUID,
+    file_id: uuid.UUID,
+    session: AsyncSession,
+) -> UserConversationRead | None:
+    existing_user_conversation = await session.scalar(
+        select(UserConversation).where(
+            UserConversation.user_id == user_id,
+            UserConversation.conversation_id == conversation_id,
+        )
+    )
+
+    if existing_user_conversation is None:
+        return None
+
+    existing_conversation_files = existing_user_conversation.relevant_file_ids or []
+
+    if file_id in existing_conversation_files:
+        existing_conversation_files = [
+            existing_file_id
+            for existing_file_id in existing_conversation_files
+            if existing_file_id != file_id
+        ]
+    else:
+        existing_conversation_files.append(file_id)
+
+    try:
+        updated_user_conversation = await session.scalar(
+            update(UserConversation)
+            .where(UserConversation.id == existing_user_conversation.id)
+            .values(relevant_file_ids=existing_conversation_files)
+            .returning(UserConversation)
+        )
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        return None
+
+    if updated_user_conversation is None:
+        return None
+
+    return await _conversation_read(updated_user_conversation, session=session)
+
+
 async def delete_user_conversation(
     user_id: uuid.UUID,
     conversation_id: uuid.UUID,

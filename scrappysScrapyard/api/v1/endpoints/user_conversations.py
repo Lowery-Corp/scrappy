@@ -24,6 +24,7 @@ from repositories.user_conversation import (
     stream_openai_response_conversation_text,
     update_conversation_message,
     update_user_conversation,
+    update_user_conversation_files,
 )
 from schemas.conversation_message import (
     ConversationMessageCreate,
@@ -409,3 +410,26 @@ async def delete_conversation_message_route(
         )
 
     return {"ok": True}
+
+
+@router.post("/{conversation_id}/files/{file_id}", response_model=UserConversationRead, status_code=status.HTTP_201_CREATED)
+async def add_file_to_conversation_route(
+    conversation_id: uuid.UUID,
+    file_id: uuid.UUID,
+    current_user: AuthorizedUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> UserConversationRead:
+    updated_conversation = await update_user_conversation_files(
+        user_id=uuid.UUID(current_user.id),
+        conversation_id=conversation_id,
+        file_id=file_id,
+        session=session,
+    )
+
+    if updated_conversation is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Conversation not found or update violates a database constraint",
+        )
+
+    return updated_conversation

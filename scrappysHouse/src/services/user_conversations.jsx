@@ -86,7 +86,6 @@ const postConversationStream = async (path, body, handlers) => {
   await readConversationStream(response, handlers);
 };
 
-
 export const getUserConversations = async () => {
   try {
     const response = await api.get(`/api/v1/conversations`);
@@ -149,4 +148,14 @@ export const sendMessageStream = async (conversationId, messageData, handlers) =
     messageData,
     handlers
   );
+};
+
+export const addFilesToConversation = async (conversationId, fileId) => {
+  try {
+    await api.post(`/api/v1/conversations/${conversationId}/files/${fileId}`);
+    return true;
+  } catch (error) {
+    console.error("Error adding files to conversation:", error);
+    throw error;
+  }
 };

@@ -14,7 +14,7 @@ class UserConversationCreate(BaseModel):
 
 class UserConversationUpdate(BaseModel):
     conversation_name: str | None = None
-    relevant_file_ids: list[uuid.UUID] | None = None
+    file_ids: list[uuid.UUID] | None = None
     openai_conversation_id: str | None = None
 
 
