@@ -11,6 +11,14 @@ export default function ChatSidebar({
     return file.name || String(file.storage_key).split("/").pop() || "Untitled File";
   };
 
+  const removeNonePdfFiles = (files) => {
+    return files.filter((file) => {
+      const fileName = getFileName(file);
+      const fileExtension = fileName.split(".").pop().toLowerCase();
+      return fileExtension === "pdf";
+    });
+  };
+
   const sortFilesByName = (files) => {
     return [...files].sort((a, b) => {
       const nameA = a.name.toLowerCase();
@@ -33,7 +41,9 @@ export default function ChatSidebar({
       name: getFileName(file),
     }));
 
-    return sortFilesByName(selectedFilesWithNames);
+    const filteredPdfFiles = removeNonePdfFiles(selectedFilesWithNames);
+
+    return sortFilesByName(filteredPdfFiles);
   }, [userFiles, selectedFileIds]);
 
   const files = useMemo(() => {
@@ -46,7 +56,9 @@ export default function ChatSidebar({
       name: getFileName(file),
     }));
 
-    return sortFilesByName(filesWithNames);
+    const filteredPdfFiles = removeNonePdfFiles(filesWithNames);
+
+    return sortFilesByName(filteredPdfFiles);
   }, [userFiles, selectedFileIds]);
 
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();

@@ -15,20 +15,8 @@ import ChatPanelHeader from "../components/documentChat/ChatPanelHeader";
 import ChatSidebar from "../components/documentChat/ChatSidebar";
 import ChatThread from "../components/documentChat/ChatThread";
 import ChatFileSelector from "../components/documentChat/ChatFileSelector";
+import createOptimisticMessage from "../components/documentChat/OptimisticMessage";
 
-const createOptimisticMessage = ({
-  messageText,
-  senderIsAgent,
-  isLoading = false,
-}) => ({
-  id: `optimistic-${Date.now()}-${Math.random()}`,
-  user_conversation_id: 0,
-  message_text: messageText,
-  sender_is_agent: senderIsAgent,
-  llm_message_id: null,
-  created_at: new Date().toISOString(),
-  is_loading: isLoading,
-});
 
 export default function DocumentChat() {
   const { user } = useAuth();
