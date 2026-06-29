@@ -16,6 +16,9 @@ import ChatSidebar from "../components/documentChat/ChatSidebar";
 import ChatThread from "../components/documentChat/ChatThread";
 import ChatFileSelector from "../components/documentChat/ChatFileSelector";
 import createOptimisticMessage from "../components/documentChat/OptimisticMessage";
+import { popupMessage } from "../components/helpers/PopupMessage";
+import PopupBanner from "../components/helpers/PopupBanner";
+
 
 
 export default function DocumentChat() {
@@ -321,6 +324,7 @@ export default function DocumentChat() {
   const handleFileSelect = async (fileId) => {
     if (!activeChatId) {
       console.warn("No active chat selected");
+      popupMessage("Please select a chat before selecting files.", "warning");
       return;
     }
 
@@ -365,6 +369,7 @@ export default function DocumentChat() {
 
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+      <PopupBanner />
       <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-7xl flex-col gap-4 px-4 py-6 lg:flex-row lg:gap-6 lg:py-8">
         <ChatSidebar
           chats={userChats}
@@ -397,6 +402,7 @@ export default function DocumentChat() {
         </section>
 
         <ChatFileSelector
+          selectedChatId={activeChat?.conversation_id ?? null}
           userFiles={userFiles}
           selectedFileIds={selectedFileIds}
           onFileSelect={handleFileSelect}
