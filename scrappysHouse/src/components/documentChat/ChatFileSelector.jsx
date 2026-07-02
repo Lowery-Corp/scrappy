@@ -44,6 +44,10 @@ export default function ChatSidebar({
 
     const filteredPdfFiles = removeNonePdfFiles(selectedFilesWithNames);
 
+    return sortFilesByName(filteredPdfFiles);
+  }, [userFiles, selectedFileIds]);
+
+  const files = useMemo(() => {
     const notSelectedFiles = userFiles.filter(
       (file) => !selectedFileIds.includes(file.file_id),
     );
