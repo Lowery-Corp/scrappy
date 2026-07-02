@@ -113,6 +113,11 @@ export default function DocumentChat() {
   const handleNewMessage = async (message) => {
     const trimmedMessage = message.trim();
 
+    // if (selectedFileIds.length < 1){
+    //   popupMessage("Please select at least one file before sending a message.", "warning");
+    //   return;
+    // }
+
     if (!trimmedMessage) {
       return;
     }

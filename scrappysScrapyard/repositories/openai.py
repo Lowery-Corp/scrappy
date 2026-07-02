@@ -303,3 +303,17 @@ def get_response_output_text(response: dict[str, Any]) -> str:
                 text_parts.append(text)
 
     return "".join(text_parts)
+
+
+async def create_llm_embedding(text: str) -> list[float]:
+    response = await _request_json(
+        "POST",
+        "/v1/embeddings",
+        json={
+            "model": "text-embedding-3-small",
+            "input": text,
+            "encoding_format": "float",
+        },
+    )
+
+    return response.get("data", [{}])[0].get("embedding", [])
