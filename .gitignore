@@ -28,3 +28,4 @@ dist-ssr
 *.sw?
 
 */__pycache__
+*/*/__pycache__

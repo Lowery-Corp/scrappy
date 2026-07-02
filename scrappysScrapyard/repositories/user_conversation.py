@@ -1,4 +1,9 @@
 import uuid
+from pathlib import Path
+import json as JSON
+from typing import Mapping, Any
+
+LLM_INSTRUCTIONS_PATH = (Path(__file__).parent.parent / 'llm_instructions/docs_chat.md').read_text(encoding='utf-8')
 
 from sqlalchemy import delete, insert, select, update
 from sqlalchemy.exc import IntegrityError
@@ -11,6 +16,10 @@ from repositories.openai import (
     create_openai_response,
     get_response_output_text,
     stream_openai_response_text,
+    create_llm_embedding,
+)
+from repositories.file_chunk import (
+    list_file_chunks,
 )
 from schemas.conversation_message import (
     ConversationMessageCreate,
@@ -177,6 +186,17 @@ async def update_user_conversation(
     return await _conversation_read(updated_user_conversation, session=session)
 
 
+async def check_file_ownership(user_id: uuid.UUID, file_id: uuid.UUID, session: AsyncSession) -> bool:
+    # Implement the logic to check if the user owns the file.
+    # This is a placeholder implementation. Replace it with your actual logic.
+    result = await session.scalar(
+        select(UserConversation).where(
+            UserConversation.user_id == user_id,
+            UserConversation.relevant_file_ids.contains([file_id])
+        )
+    )
+    return result is not None
+
 async def update_user_conversation_files(
     user_id: uuid.UUID,
     conversation_id: uuid.UUID,
@@ -189,6 +209,10 @@ async def update_user_conversation_files(
             UserConversation.conversation_id == conversation_id,
         )
     )
+
+    # user_owns_file = await check_file_ownership(user_id, file_id, session)
+    # if not user_owns_file:
+    #     return None
 
     if existing_user_conversation is None:
         return None
@@ -270,7 +294,12 @@ async def get_or_create_openai_conversation_id(
     user_id: uuid.UUID,
     conversation_id: uuid.UUID,
     session: AsyncSession,
-) -> str | None:
+) -> Mapping[str, Any]:
+
+    ret: dict[str, Any] = {
+        "openai_conversation_id": None,
+        "relevant_file_ids": None,
+    }
     user_conversation = await session.scalar(
         select(UserConversation).where(
             UserConversation.user_id == user_id,
@@ -279,10 +308,13 @@ async def get_or_create_openai_conversation_id(
     )
 
     if user_conversation is None:
-        return None
+        return ret
 
     if user_conversation.openai_conversation_id is not None:
-        return user_conversation.openai_conversation_id
+        # return user_conversation.openai_conversation_id
+        ret["openai_conversation_id"] = user_conversation.openai_conversation_id
+        ret["relevant_file_ids"] = user_conversation.relevant_file_ids
+        return ret
 
     openai_conversation = await create_openai_conversation(
         metadata={
@@ -292,7 +324,7 @@ async def get_or_create_openai_conversation_id(
     )
     openai_conversation_id = openai_conversation.get("id")
     if not isinstance(openai_conversation_id, str):
-        return None
+        return ret
 
     await session.execute(
         update(UserConversation)
@@ -301,7 +333,10 @@ async def get_or_create_openai_conversation_id(
     )
     await session.commit()
 
-    return openai_conversation_id
+    return {
+        "openai_conversation_id": openai_conversation_id,
+        "relevant_file_ids": user_conversation.relevant_file_ids
+    }
 
 
 async def create_openai_response_conversation_message(
@@ -347,13 +382,40 @@ async def stream_openai_response_conversation_text(
     message_text: str,
     session: AsyncSession,
 ):
-    openai_conversation_id = await get_or_create_openai_conversation_id(
+    # TODO:   1. repositories/user_conversation.py:348: get_or_create_openai_conversation_id() now returns a dict, but create_openai_response_conversation_message() still treats the return value like a string conversation id. That means the non-streaming path passes the
+    #      whole mapping as conversation, and it never injects retrieved chunks.
+
+    #   2. repositories/user_conversation.py:189: check_file_ownership() is checking UserConversation.relevant_file_ids, not UserFile. This blocks adding a file unless it is already attached to some conversation, which makes the first attach fail. Ownership should
+    #      query UserFile by user_id and file_id.
+
+    #   3. schemas/user_conversation.py:9: conversation creation accepts relevant_file_ids directly, but I don’t see ownership validation there. Even if the attach endpoint is fixed, a user could potentially create a conversation with arbitrary file UUIDs unless this
+    #      path validates them too.
+
+    #   4. repositories/file_chunk.py:31: file_id / file_ids are still typed as int, but the model uses UUID. Same general mismatch appears in schemas/file_chunk.py:14 for updates. Runtime may work with UUID values, but the annotations are misleading and will keep
+    #      causing API/repository mistakes.
+
+    #   The main improvement is real: repositories/file_chunk.py:47 now triggers cosine ordering when an embedding is provided, and embedding_status is back to being a real filter. That fixes the core retrieval bug from before.
+
+    relivent_conversation = await get_or_create_openai_conversation_id(
         user_id=user_id,
         conversation_id=conversation_id,
         session=session,
     )
-    if openai_conversation_id is None:
+    relevant_file_ids = relivent_conversation.get("relevant_file_ids")
+    openai_conversation_id = relivent_conversation.get("openai_conversation_id")
+
+    if not relevant_file_ids or not openai_conversation_id:
+        print("No relevant file IDs or openai conversation ID found. Skipping embedding and file chunk retrieval.", flush=True)
         return
+
+    embedding = await create_llm_embedding(message_text)
+
+    relivent_file_chunks = await list_file_chunks(session=session, embedding=embedding, limit=6, file_ids=relevant_file_ids)
+
+    instructions: dict[str, list[str] | str] = {
+        "instructions": LLM_INSTRUCTIONS_PATH,
+        "relevant_file_chunks": [chunk.chunk_text for chunk in relivent_file_chunks],
+    }
 
     async for event in stream_openai_response_text(
         input=message_text,
@@ -362,6 +424,7 @@ async def stream_openai_response_conversation_text(
             "user_id": str(user_id),
             "conversation_id": str(conversation_id),
         },
+        instructions=JSON.dumps(instructions),
     ):
         yield event
 
