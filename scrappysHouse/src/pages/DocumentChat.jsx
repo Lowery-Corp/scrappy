@@ -16,7 +16,6 @@ import ChatSidebar from "../components/documentChat/ChatSidebar";
 import ChatThread from "../components/documentChat/ChatThread";
 import ChatFileSelector from "../components/documentChat/ChatFileSelector";
 import createOptimisticMessage from "../components/documentChat/OptimisticMessage";
-import { popupMessage } from "../components/helpers/PopupMessage";
 import PopupBanner from "../components/helpers/PopupBanner";
 
 
@@ -51,10 +50,6 @@ export default function DocumentChat() {
 
   const activeChatFileCount = selectedFileIds.length;
 
-  useEffect(() => {
-    setSelectedFilesIds(activeChat?.relevant_file_ids ?? []);
-  }, [activeChat]);
-
   const handleChatReset = () => {
     setMessages([]);
     setSelectedFilesIds([]);
@@ -72,6 +67,13 @@ export default function DocumentChat() {
       setUserChats(safeConversations);
 
       if (conversationId && conversationId !== "new") {
+        const selectedConversation =
+          safeConversations.find(
+            (chat) => chat.conversation_id === conversationId,
+          ) ?? null;
+
+        setSelectedFilesIds(selectedConversation?.relevant_file_ids ?? []);
+
         if (streamingConversationId.current === conversationId) {
           return;
         }
@@ -91,19 +93,66 @@ export default function DocumentChat() {
     }
   };
 
-  const loadUserFiles = async () => {
-    try {
-      const files = await getUserFiles();
-      setUserFiles(Array.isArray(files) ? files : []);
-    } catch (error) {
-      console.error("Failed to load user files:", error);
-      setUserFiles([]);
-    }
-  };
-
   useEffect(() => {
-    loadUserConversations();
-    loadUserFiles();
+    let shouldIgnore = false;
+
+    const loadChatPageData = async () => {
+      try {
+        const [conversations, files] = await Promise.all([
+          getUserConversations(),
+          getUserFiles(),
+        ]);
+
+        if (shouldIgnore) {
+          return;
+        }
+
+        const safeConversations = Array.isArray(conversations)
+          ? conversations
+          : [];
+
+        setUserChats(safeConversations);
+        setUserFiles(Array.isArray(files) ? files : []);
+
+        if (conversationId && conversationId !== "new") {
+          if (streamingConversationId.current === conversationId) {
+            return;
+          }
+
+          const selectedConversation =
+            safeConversations.find(
+              (chat) => chat.conversation_id === conversationId,
+            ) ?? null;
+          const conversationMessages = await getConversationMessages(
+            conversationId,
+          );
+
+          if (shouldIgnore) {
+            return;
+          }
+
+          setSelectedFilesIds(selectedConversation?.relevant_file_ids ?? []);
+          setMessages(conversationMessages);
+        } else {
+          setMessages([]);
+          setSelectedFilesIds([]);
+        }
+      } catch (error) {
+        if (shouldIgnore) {
+          return;
+        }
+
+        console.error("Failed to load chat page data:", error);
+        setUserChats([]);
+        setUserFiles([]);
+      }
+    };
+
+    loadChatPageData();
+
+    return () => {
+      shouldIgnore = true;
+    };
   }, [conversationId]);
 
   const handleConversionSync = async () => {
@@ -184,7 +233,7 @@ export default function DocumentChat() {
               message_text: trimmedMessage,
               sender_is_agent: false,
             },
-            relevant_file_ids: [],
+            relevant_file_ids: selectedFileIds,
           },
           {
             conversation: (conversation) => {
@@ -328,8 +377,11 @@ export default function DocumentChat() {
 
   const handleFileSelect = async (fileId) => {
     if (!activeChatId) {
-      console.warn("No active chat selected");
-      popupMessage("Please select a chat before selecting files.", "warning");
+      setSelectedFilesIds((previousSelectedFileIds) =>
+        previousSelectedFileIds.includes(fileId)
+          ? previousSelectedFileIds.filter((id) => id !== fileId)
+          : [...previousSelectedFileIds, fileId],
+      );
       return;
     }
 
@@ -375,7 +427,7 @@ export default function DocumentChat() {
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
       <PopupBanner />
-      <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-7xl flex-col gap-4 px-4 py-6 lg:flex-row lg:gap-6 lg:py-8">
+      <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-[1800px] flex-col gap-2 px-2 py-2 lg:flex-row lg:gap-3 lg:px-3">
         <ChatSidebar
           chats={userChats}
           activeChatId={activeChat?.conversation_id ?? null}
@@ -388,7 +440,7 @@ export default function DocumentChat() {
           setMultiSelectMode={setMultiSelectMode}
         />
 
-        <section className="flex h-[calc(100vh-7rem)] min-h-[520px] flex-1 flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white/90 shadow-xl dark:border-gray-700 dark:bg-gray-800/90 lg:h-[calc(100vh-8rem)]">
+        <section className="flex h-[calc(100vh-5rem)] min-h-[480px] flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white/95 shadow-lg dark:border-gray-700 dark:bg-gray-800/95 lg:h-[calc(100vh-4.75rem)]">
           <ChatPanelHeader
             chat={activeChat}
             activeChatFileCount={activeChatFileCount}
@@ -407,7 +459,7 @@ export default function DocumentChat() {
         </section>
 
         <ChatFileSelector
-          selectedChatId={activeChat?.conversation_id ?? null}
+          selectedChatId={activeChat?.conversation_id ?? "new"}
           userFiles={userFiles}
           selectedFileIds={selectedFileIds}
           onFileSelect={handleFileSelect}

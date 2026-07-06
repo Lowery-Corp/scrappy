@@ -79,7 +79,7 @@ async def get_file_job_route(
     require_admin_user(current_user)
 
     file_job = await get_file_job(
-        user_id=current_user.id,
+        user_id=None,  # Admins can access any file job
         job_id=job_id,
         session=session,
     )

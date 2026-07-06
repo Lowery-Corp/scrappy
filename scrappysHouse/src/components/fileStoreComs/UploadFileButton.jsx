@@ -6,9 +6,11 @@ export default function UploadFileButton({ onFileUpload, className = "" }) {
   const fileInputRef = useRef(null);
   const folderInputRef = useRef(null);
 
-  const handleFiles = (fileList) => {
+  const handleFiles = (event) => {
+    const fileList = event.target.files;
     if (!fileList || fileList.length === 0) return;
     onFileUpload(Array.from(fileList));
+    event.target.value = "";
     setOpen(false);
   };
 
@@ -58,7 +60,7 @@ export default function UploadFileButton({ onFileUpload, className = "" }) {
         type="file"
         multiple
         className="hidden"
-        onChange={(e) => handleFiles(e.target.files)}
+        onChange={handleFiles}
       />
 
       <input
@@ -67,7 +69,7 @@ export default function UploadFileButton({ onFileUpload, className = "" }) {
         multiple
         webkitdirectory=""
         className="hidden"
-        onChange={(e) => handleFiles(e.target.files)}
+        onChange={handleFiles}
       />
     </div>
   );

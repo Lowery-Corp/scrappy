@@ -152,8 +152,8 @@ export const sendMessageStream = async (conversationId, messageData, handlers) =
 
 export const addFilesToConversation = async (conversationId, fileId) => {
   try {
-    await api.post(`/api/v1/conversations/${conversationId}/files/${fileId}`);
-    return true;
+    const response = await api.post(`/api/v1/conversations/${conversationId}/files/${fileId}`);
+    return response.data;
   } catch (error) {
     console.error("Error adding files to conversation:", error);
     throw error;

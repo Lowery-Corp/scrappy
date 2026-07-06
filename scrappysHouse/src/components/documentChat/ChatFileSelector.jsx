@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
-export default function ChatSidebar({
+export default function ChatFileSelector({
   selectedChatId,
   userFiles,
   selectedFileIds,
@@ -8,29 +8,32 @@ export default function ChatSidebar({
 }) {
   const [searchQuery, setSearchQuery] = useState("");
 
-  const getFileName = (file) => {
+  const getFileName = useCallback((file) => {
     return file.name || String(file.storage_key).split("/").pop() || "Untitled File";
-  };
+  }, []);
 
-  const removeNonePdfFiles = (files) => {
-    return files.filter((file) => {
-      const fileName = getFileName(file);
-      const fileExtension = fileName.split(".").pop().toLowerCase();
-      return fileExtension === "pdf";
-    });
-  };
+  const removeNonePdfFiles = useCallback(
+    (files) => {
+      return files.filter((file) => {
+        const fileName = getFileName(file);
+        const fileExtension = fileName.split(".").pop().toLowerCase();
+        return fileExtension === "pdf";
+      });
+    },
+    [getFileName],
+  );
 
-  const sortFilesByName = (files) => {
+  const sortFilesByName = useCallback((files) => {
     return [...files].sort((a, b) => {
-      const nameA = a.name.toLowerCase();
-      const nameB = b.name.toLowerCase();
+      const nameA = (a.name || "").toLowerCase();
+      const nameB = (b.name || "").toLowerCase();
 
       if (nameA < nameB) return -1;
       if (nameA > nameB) return 1;
 
       return 0;
     });
-  };
+  }, []);
 
   const selectedFiles = useMemo(() => {
     const parsedSelectedFiles = userFiles.filter((file) =>
@@ -45,7 +48,7 @@ export default function ChatSidebar({
     const filteredPdfFiles = removeNonePdfFiles(selectedFilesWithNames);
 
     return sortFilesByName(filteredPdfFiles);
-  }, [userFiles, selectedFileIds]);
+  }, [getFileName, removeNonePdfFiles, selectedFileIds, sortFilesByName, userFiles]);
 
   const files = useMemo(() => {
     const notSelectedFiles = userFiles.filter(
@@ -60,7 +63,7 @@ export default function ChatSidebar({
     const filteredPdfFiles = removeNonePdfFiles(filesWithNames);
 
     return sortFilesByName(filteredPdfFiles);
-  }, [userFiles, selectedFileIds]);
+  }, [getFileName, removeNonePdfFiles, selectedFileIds, sortFilesByName, userFiles]);
 
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
 
@@ -73,40 +76,40 @@ export default function ChatSidebar({
   );
 
   return (
-    <aside className="flex w-full flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white/90 shadow-xl dark:border-gray-700 dark:bg-gray-800/90 lg:w-80">
-      <div className="shrink-0 border-b border-gray-200 p-5 text-left dark:border-gray-700">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="m-0 text-lg font-normal text-gray-900 dark:text-white">
+    <aside className="flex w-full flex-col overflow-hidden rounded-xl border border-gray-200 bg-white/95 shadow-lg dark:border-gray-700 dark:bg-gray-800/95 lg:w-72 xl:w-80">
+      <div className="shrink-0 border-b border-gray-200 p-3 text-left dark:border-gray-700">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="m-0 text-base font-medium text-gray-900 dark:text-white">
             Your Files
           </h2>
 
           <button
             type="button"
-            className="w-full rounded-md border border-purple-200 bg-purple-50 px-4 py-2 text-sm font-normal text-purple-700 transition-colors hover:bg-purple-100 dark:border-purple-800 dark:bg-purple-950/40 dark:text-purple-200 dark:hover:bg-purple-900/50 md:w-auto"
+            className="w-full rounded-md border border-purple-200 bg-purple-50 px-2.5 py-1.5 text-xs font-medium text-purple-700 transition-colors hover:bg-purple-100 dark:border-purple-800 dark:bg-purple-950/40 dark:text-purple-200 dark:hover:bg-purple-900/50 md:w-auto"
           >
-            Upload Documents
+            Upload
           </button>
         </div>
 
-        <label className="mt-4 block">
+        <label className="mt-3 block">
           <span className="sr-only">Search Files</span>
           <input
             type="search"
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
             placeholder="Search files..."
-            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none transition-colors placeholder:text-gray-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:focus:ring-purple-900"
+            className="h-9 w-full rounded-md border border-gray-300 bg-white px-2.5 text-sm text-gray-900 outline-none transition-colors placeholder:text-gray-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:focus:ring-purple-900"
           />
         </label>
       </div>
 
-      <div className="max-h-[33%] shrink-0 overflow-hidden border-b border-gray-200 px-5 py-3 text-left dark:border-gray-700">
+      <div className="max-h-[28%] shrink-0 overflow-hidden border-b border-gray-200 px-3 py-2 text-left dark:border-gray-700">
         { selectedChatId ?
           <>
             <h2 className="m-0 px-2 text-xs font-normal tracking-wide text-gray-500 dark:text-gray-400">
               Selected Files
             </h2>
-            <div className="mt-2 max-h-[calc(100%-1.25rem)] overflow-y-auto pr-1">
+            <div className="mt-1.5 max-h-[calc(100%-1.25rem)] overflow-y-auto pr-1">
               {filteredSelectedFiles.length > 0 ? (
                 <div className="space-y-1">
                   {filteredSelectedFiles.map((file) => {
@@ -119,7 +122,7 @@ export default function ChatSidebar({
                     return (
                       <div
                         key={fileId}
-                        className={`group min-w-64 rounded-md border px-2 py-1.5 text-left transition-colors lg:min-w-0 ${
+                        className={`group min-w-56 rounded-md border px-2 py-1 text-left transition-colors lg:min-w-0 ${
                           isActive
                             ? "border-purple-300 bg-purple-50 dark:border-purple-700 dark:bg-purple-950/40"
                             : "border-transparent bg-transparent hover:bg-gray-50 dark:hover:bg-gray-700/60"
@@ -131,11 +134,11 @@ export default function ChatSidebar({
                           className="w-full min-w-0 text-left"
                         >
                           <div className="flex items-center justify-between gap-2">
-                            <p className="m-0 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-sm font-normal text-gray-800 dark:text-gray-100">
+                            <p className="m-0 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-xs font-normal text-gray-800 dark:text-gray-100">
                               {fileName}
                             </p>
 
-                            <span className="shrink-0 text-xs font-normal text-gray-400 dark:text-gray-500">
+                            <span className="hidden shrink-0 text-xs font-normal text-gray-400 dark:text-gray-500 xl:inline">
                               {updatedAt}
                             </span>
                           </div>
@@ -154,7 +157,7 @@ export default function ChatSidebar({
             </div>
           </>
         : <p className="text-xs font-normal text-gray-400 dark:text-gray-500">
-            Please select a chat to view selected files.
+            Select files to attach to your new chat.
           </p>
         }
       </div>
@@ -164,7 +167,7 @@ export default function ChatSidebar({
           All Files
         </h2>
 
-        <div className="mt-2 min-h-0 flex-1 overflow-y-auto pr-1">
+        <div className="mt-1.5 min-h-0 flex-1 overflow-y-auto pr-1">
           {filteredFiles.length > 0 ? (
             <div className="flex gap-1 lg:flex-col">
               {filteredFiles.map((file) => {
@@ -177,7 +180,7 @@ export default function ChatSidebar({
                 return (
                   <div
                     key={fileId}
-                    className={`group min-w-64 rounded-md border px-2 py-1.5 text-left transition-colors lg:min-w-0 ${
+                    className={`group min-w-56 rounded-md border px-2 py-1 text-left transition-colors lg:min-w-0 ${
                       isActive
                         ? "border-purple-300 bg-purple-50 dark:border-purple-700 dark:bg-purple-950/40"
                         : "border-transparent bg-transparent hover:bg-gray-50 dark:hover:bg-gray-700/60"
@@ -189,11 +192,11 @@ export default function ChatSidebar({
                       className="w-full min-w-0 text-left"
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <p className="m-0 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-sm font-normal text-gray-800 dark:text-gray-100">
+                        <p className="m-0 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-xs font-normal text-gray-800 dark:text-gray-100">
                           {fileName}
                         </p>
 
-                        <span className="shrink-0 text-xs font-normal text-gray-400 dark:text-gray-500">
+                        <span className="hidden shrink-0 text-xs font-normal text-gray-400 dark:text-gray-500 xl:inline">
                           {updatedAt}
                         </span>
                       </div>
