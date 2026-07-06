@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import MarkdownMessage from "./MarkdownMessage";
 
 export default function ChatThread({ messages, username }) {
   const bottomRef = useRef(null);
@@ -43,10 +44,12 @@ export default function ChatThread({ messages, username }) {
                   <span className="h-2 w-2 animate-pulse rounded-full bg-purple-500 delay-100" />
                   <span className="h-2 w-2 animate-pulse rounded-full bg-purple-500 delay-200" />
                 </div>
-              ) : (
+              ) : isUser ? (
                 <p className="whitespace-pre-wrap text-sm leading-5">
                   {message.message_text}
                 </p>
+              ) : (
+                <MarkdownMessage text={message.message_text} />
               )}
               {!isUser && !isLoading && message.sources?.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1.5">
