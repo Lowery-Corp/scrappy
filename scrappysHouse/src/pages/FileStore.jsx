@@ -1,5 +1,4 @@
-import { useState, useEffect } from "react";
-import { useAuth } from "../auth/AuthProvider";
+import { useCallback, useEffect, useState } from "react";
 import { getBucketStructure, syncBucketStructure, uploadFile, deleteFile, bulkDeleteFiles } from "../services/blob";
 import CreateFolder from "../components/fileStoreComs/CreateFolder";
 import FileRename from "../components/fileStoreComs/FileRename";
@@ -8,7 +7,6 @@ import FileStoreHeader from "../components/fileStoreComs/FileStoreHeader";
 import FileDisplay from "../components/fileStoreComs/FileDisplay";
 
 export default function FileStore() {
-  const { user } = useAuth();
   const [files, setFiles] = useState([]);
   const [folders, setFolders] = useState([]);
   const [currentPath, setCurrentPath] = useState("/");
@@ -20,10 +18,6 @@ export default function FileStore() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [fileUploadCounter, setFileUploadCounter] = useState(null);
-
-  useEffect(() => {
-    loadFileStructure();
-  }, [currentPath]);
 
   const normalizedQuery = searchQuery.trim().toLowerCase();
 
@@ -47,7 +41,7 @@ export default function FileStore() {
     }
   };
 
-  const getNodeAtPath = (structure, path) => {
+  const getNodeAtPath = useCallback((structure, path) => {
     if (!structure || path === "/") return structure || {};
 
     const parts = path.split("/").filter(Boolean);
@@ -61,9 +55,9 @@ export default function FileStore() {
     }
 
     return current;
-  };
+  }, []);
 
-  const loadFileStructure = async () => {
+  const loadFileStructure = useCallback(async () => {
     try {
       setIsLoading(true);
 
@@ -108,7 +102,11 @@ export default function FileStore() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [currentPath, getNodeAtPath]);
+
+  useEffect(() => {
+    loadFileStructure();
+  }, [loadFileStructure]);
 
   const handleFileUpload = async (uploadedFiles) => {
     const filesArray = Array.from(uploadedFiles);
@@ -199,41 +197,37 @@ export default function FileStore() {
     setFolders((prev) => [...prev, newFolder]);
   };
 
-  const deleteSelected = () => {
-    if (selectedItems.length > 0 && confirm(`Delete ${selectedItems.length} item(s)?`)) {
-      console.log("selected media for deletion:", selectedItems);
-      setFiles((prev) => prev.filter((file) => !selectedItems.includes(file.id)));
-      setFolders((prev) => prev.filter((folder) => !selectedItems.includes(folder.id)));
-      setSelectedItems([]);
-      if (
-        selectedItems.length > 0 &&
-        typeof selectedItems[0] === "string" &&
-        selectedItems[0].startsWith("folder-")
-      ) {
-        for (const folderId of selectedItems) {
-          const folder = folders.find((f) => f.id === folderId);
-          if (folder) {
-            console.log(`Deleting folder '${folder.name}' at path '${folder.path}'`);
-            // Recursively deletes all the files in the folder
-            bulkDeleteFiles(folder.path).catch((error) =>
-              console.error(`Failed to bulk delete files in folder '${folder.name}':`, error)
-            );
-          }
-        }
-      } else {
-        for (const fileId of selectedItems) {
-          const file = files.find((f) => f.id === fileId);
-          if (file) {
-            deleteFile(file.path).catch((error) =>
-              console.error(`Failed to delete file '${file.name}':`, error)
-            );
-          }
-        }
-      }
+  const deleteSelected = async () => {
+    if (
+      selectedItems.length === 0 ||
+      !confirm(`Delete ${selectedItems.length} item(s)?`)
+    ) {
+      return;
     }
-    handleSync().catch((error) =>
-      console.error("Failed to sync after deletion:", error)
+
+    const selectedItemIds = [...selectedItems];
+    const selectedFiles = files.filter((file) => selectedItemIds.includes(file.id));
+    const selectedFolders = folders.filter((folder) =>
+      selectedItemIds.includes(folder.id),
     );
+
+    setFiles((prev) => prev.filter((file) => !selectedItemIds.includes(file.id)));
+    setFolders((prev) =>
+      prev.filter((folder) => !selectedItemIds.includes(folder.id)),
+    );
+    setSelectedItems([]);
+
+    try {
+      await Promise.all([
+        ...selectedFolders.map((folder) => bulkDeleteFiles(folder.path)),
+        ...selectedFiles.map((file) => deleteFile(file.path)),
+      ]);
+
+      await handleSync();
+    } catch (error) {
+      console.error("Failed to delete selected items:", error);
+      await loadFileStructure();
+    }
   };
 
   const openSelectedFolder = () => {

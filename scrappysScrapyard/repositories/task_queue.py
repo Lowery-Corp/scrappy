@@ -41,6 +41,8 @@ def enqueue_task(
     except OperationalError as exc:
         raise TaskQueueError("Could not publish task to Celery broker") from exc
 
+    print(f"Task {task_name} enqueued with ID {result.id} to queue {queue_name}", flush=True) # type: ignore
+
     return QueuedTask(
         celery_task_id=result.id,
         task_name=task_name,
@@ -56,6 +58,7 @@ async def enqueue_file_ingestion_task(
     file_job_id: uuid.UUID | None = None,
     queue_name: str = DEFAULT_FILE_INGESTION_QUEUE,
 ) -> QueuedTask:
+    print(f"Enqueuing file ingestion task for file_id={file_id}, storage_key={storage_key}, user_id={user_id}, file_job_id={file_job_id}, queue_name={queue_name}", flush=True)
     payload: dict[str, str] = {
         "file_id": str(file_id),
         "storage_key": storage_key,

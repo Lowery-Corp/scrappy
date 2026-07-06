@@ -13,7 +13,6 @@ def _user_scoped_file_job_query(user_id: str | None = None):
         select(FileJob, UserFile.storage_key, UserFile.user_id)
         .join(UserFile, FileJob.file_id == UserFile.file_id)
     )
-
     if user_id:
         stmt = stmt.where(UserFile.user_id == user_id)
 
@@ -101,6 +100,7 @@ async def get_file_job(
     job_id: uuid.UUID,
     session: AsyncSession,
 ) -> FileJob | None:
+    print("Getting file job with user_id:", user_id, "and job_id:", job_id, flush=True)
     return await session.scalar(
         _user_scoped_file_job_query(user_id).where(FileJob.job_id == job_id)
     )

@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
-export default function ChatSidebar({
+export default function ChatFileSelector({
   selectedChatId,
   userFiles,
   selectedFileIds,
@@ -8,29 +8,32 @@ export default function ChatSidebar({
 }) {
   const [searchQuery, setSearchQuery] = useState("");
 
-  const getFileName = (file) => {
+  const getFileName = useCallback((file) => {
     return file.name || String(file.storage_key).split("/").pop() || "Untitled File";
-  };
+  }, []);
 
-  const removeNonePdfFiles = (files) => {
-    return files.filter((file) => {
-      const fileName = getFileName(file);
-      const fileExtension = fileName.split(".").pop().toLowerCase();
-      return fileExtension === "pdf";
-    });
-  };
+  const removeNonePdfFiles = useCallback(
+    (files) => {
+      return files.filter((file) => {
+        const fileName = getFileName(file);
+        const fileExtension = fileName.split(".").pop().toLowerCase();
+        return fileExtension === "pdf";
+      });
+    },
+    [getFileName],
+  );
 
-  const sortFilesByName = (files) => {
+  const sortFilesByName = useCallback((files) => {
     return [...files].sort((a, b) => {
-      const nameA = a.name.toLowerCase();
-      const nameB = b.name.toLowerCase();
+      const nameA = (a.name || "").toLowerCase();
+      const nameB = (b.name || "").toLowerCase();
 
       if (nameA < nameB) return -1;
       if (nameA > nameB) return 1;
 
       return 0;
     });
-  };
+  }, []);
 
   const selectedFiles = useMemo(() => {
     const parsedSelectedFiles = userFiles.filter((file) =>
@@ -45,7 +48,7 @@ export default function ChatSidebar({
     const filteredPdfFiles = removeNonePdfFiles(selectedFilesWithNames);
 
     return sortFilesByName(filteredPdfFiles);
-  }, [userFiles, selectedFileIds]);
+  }, [getFileName, removeNonePdfFiles, selectedFileIds, sortFilesByName, userFiles]);
 
   const files = useMemo(() => {
     const notSelectedFiles = userFiles.filter(
@@ -60,7 +63,7 @@ export default function ChatSidebar({
     const filteredPdfFiles = removeNonePdfFiles(filesWithNames);
 
     return sortFilesByName(filteredPdfFiles);
-  }, [userFiles, selectedFileIds]);
+  }, [getFileName, removeNonePdfFiles, selectedFileIds, sortFilesByName, userFiles]);
 
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
 
@@ -154,7 +157,7 @@ export default function ChatSidebar({
             </div>
           </>
         : <p className="text-xs font-normal text-gray-400 dark:text-gray-500">
-            Please select a chat to view selected files.
+            Select files to attach to your new chat.
           </p>
         }
       </div>
