@@ -308,6 +308,7 @@ Conversation repository conventions:
 
 - `repositories/user_conversation.py` owns conversation/message persistence, dynamic conversation naming from the first user message, and saving completed agent messages.
 - Conversation names are generated from normalized first-message text, truncated for sidebar display, with `New Conversation` as the empty-message fallback.
+- Streaming document chat retrieves context per selected file: each `relevant_file_id` is queried separately and contributes up to five embedding-ranked chunks to the OpenAI instruction payload.
 - `repositories/openai.py` owns OpenAI HTTP integration for conversations, non-streaming responses, streaming response parsing, and output text extraction.
 - The repository layer bridges streamed OpenAI deltas to persisted `conversation_message` rows only after the final response is complete.
 
