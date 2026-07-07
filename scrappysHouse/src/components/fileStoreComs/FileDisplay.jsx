@@ -95,10 +95,11 @@ export default function FileDisplay({
         </div>
       ) : (
         <div>
-          <div className="grid grid-cols-[36px_minmax(0,1.8fr)_110px_140px_140px_44px] items-center border-b border-gray-200 bg-gray-50 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-400">
+          <div className="grid grid-cols-[36px_minmax(0,1.8fr)_100px_100px_130px_130px_44px] items-center border-b border-gray-200 bg-gray-50 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-400">
             <div />
             <div>Name</div>
             <div>Size</div>
+            <div>Status</div>
             <div>Created</div>
             <div>Updated</div>
             <div />
@@ -113,7 +114,7 @@ export default function FileDisplay({
             return (
               <div
                 key={item.id}
-                className={`group grid grid-cols-[36px_minmax(0,1.8fr)_110px_140px_140px_44px] items-center gap-0 px-3 py-2 ${
+                className={`group grid grid-cols-[36px_minmax(0,1.8fr)_100px_100px_130px_130px_44px] items-center gap-0 px-3 py-2 ${
                   isSelected
                     ? "bg-purple-50 dark:bg-purple-900/20"
                     : "bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700/40"
@@ -161,6 +162,10 @@ export default function FileDisplay({
 
                 <div className="truncate pr-3 text-xs text-gray-500 dark:text-gray-400">
                   {isFolder ? "—" : item.size}
+                </div>
+
+                <div className="truncate pr-3 text-xs text-gray-500 dark:text-gray-400">
+                  {isFolder ? "—" : item.status ?? "unknown"}
                 </div>
 
                 <div className="truncate pr-3 text-xs text-gray-500 dark:text-gray-400">

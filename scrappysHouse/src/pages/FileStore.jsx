@@ -101,6 +101,7 @@ export default function FileStore() {
             path: itemPath,
             createdAt: formatFileDate(metadata.created_at ?? metadata.uploaded_at),
             updatedAt: formatFileDate(metadata.updated_at),
+            status: metadata.status ?? "unknown",
           });
         }
       });
