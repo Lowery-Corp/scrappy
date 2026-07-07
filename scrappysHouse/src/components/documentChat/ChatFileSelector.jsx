@@ -76,7 +76,7 @@ export default function ChatFileSelector({
   );
 
   return (
-    <aside className="flex w-full flex-col overflow-hidden rounded-xl border border-gray-200 bg-white/95 shadow-lg dark:border-gray-700 dark:bg-gray-800/95 lg:w-72 xl:w-80">
+    <aside className="flex w-full flex-col overflow-hidden rounded-xl border border-gray-200 bg-white/95 shadow-lg dark:border-gray-700 dark:bg-gray-800/95 lg:h-[calc(100vh-4rem)] lg:w-72 lg:shrink-0 lg:rounded-none lg:border-y-0 lg:border-r-0 lg:shadow-none xl:w-80">
       <div className="shrink-0 border-b border-gray-200 p-3 text-left dark:border-gray-700">
         <div className="flex items-center justify-between gap-2">
           <h2 className="m-0 text-base font-medium text-gray-900 dark:text-white">

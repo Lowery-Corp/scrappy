@@ -427,7 +427,7 @@ export default function DocumentChat() {
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
       <PopupBanner />
-      <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-[1800px] flex-col gap-2 px-2 py-2 lg:flex-row lg:gap-3 lg:px-3">
+      <div className="flex min-h-[calc(100vh-4rem)] w-full flex-col gap-2 px-2 py-2 lg:flex-row lg:gap-0 lg:p-0">
         <ChatSidebar
           chats={userChats}
           activeChatId={activeChat?.conversation_id ?? null}
@@ -440,7 +440,7 @@ export default function DocumentChat() {
           setMultiSelectMode={setMultiSelectMode}
         />
 
-        <section className="flex h-[calc(100vh-5rem)] min-h-[480px] flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white/95 shadow-lg dark:border-gray-700 dark:bg-gray-800/95 lg:h-[calc(100vh-4.75rem)]">
+        <section className="flex h-[calc(100vh-5rem)] min-h-[480px] flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white/95 shadow-lg dark:border-gray-700 dark:bg-gray-800/95 lg:h-[calc(100vh-4rem)] lg:min-w-0 lg:rounded-none lg:border-y-0 lg:shadow-none">
           <ChatPanelHeader
             chat={activeChat}
             activeChatFileCount={activeChatFileCount}
