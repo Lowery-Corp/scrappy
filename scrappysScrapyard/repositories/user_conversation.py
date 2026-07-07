@@ -197,6 +197,7 @@ async def check_file_ownership(user_id: uuid.UUID, file_id: uuid.UUID, session: 
     )
     return result is not None
 
+
 async def update_user_conversation_files(
     user_id: uuid.UUID,
     conversation_id: uuid.UUID,

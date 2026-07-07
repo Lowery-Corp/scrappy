@@ -1,5 +1,28 @@
 import { useMemo, useState } from "react";
 
+const getChatPreview = (chat) => {
+  const directPreview =
+    chat?.preview ||
+    chat?.last_message?.message_text ||
+    chat?.latest_message?.message_text ||
+    chat?.last_message_text ||
+    chat?.latest_message_text;
+
+  if (directPreview?.trim()) {
+    return directPreview.trim();
+  }
+
+  if (!Array.isArray(chat?.conversation_messages)) {
+    return "";
+  }
+
+  const latestMessage = [...chat.conversation_messages]
+    .reverse()
+    .find((message) => message?.message_text?.trim());
+
+  return latestMessage?.message_text.trim() ?? "";
+};
+
 export default function ChatSidebar({
   chats,
   activeChatId,
@@ -22,7 +45,7 @@ export default function ChatSidebar({
 
     return userChats.filter((chat) => {
       const chatName = chat.conversation_name || "New Chat";
-      const chatPreview = chat.preview || "";
+      const chatPreview = getChatPreview(chat);
 
       return `${chatName} ${chatPreview}`
         .toLowerCase()
@@ -139,7 +162,7 @@ export default function ChatSidebar({
         {filteredChats.map((chat) => {
           const isActive = chat.conversation_id === activeChatId;
           const chatName = chat.conversation_name || "New Chat";
-          const chatPreview = chat.preview || "No messages yet.";
+          const chatPreview = getChatPreview(chat) || "No messages yet.";
           const updatedAt = new Date(chat.updated_at).toLocaleString();
           const relevantFilesCount = chat.relevant_file_ids?.length ?? 0;
           const chatId = chat.conversation_id;
