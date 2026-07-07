@@ -1,9 +1,30 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { api } from "../services/api";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router";
+import { SESSION_EXPIRED_EVENT, api, notifySessionExpired } from "../services/api";
 
 const AuthContext = createContext(null);
 
+const SESSION_EXPIRATION_IGNORED_PATHS = [
+  "/api/v1/auth/login",
+  "/api/v1/auth/logout",
+  "/api/v1/auth/me",
+  "/api/v1/auth/register",
+];
+
+const shouldHandleSessionExpiration = (error) => {
+  if (error?.response?.status !== 401) {
+    return false;
+  }
+
+  const requestUrl = error?.config?.url ?? "";
+  return !SESSION_EXPIRATION_IGNORED_PATHS.some((path) =>
+    requestUrl.includes(path)
+  );
+};
+
 export function AuthProvider({ children }) {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState(null);
@@ -50,7 +71,7 @@ export function AuthProvider({ children }) {
   const logout = async () => {
     try {
       await api.post("/api/v1/auth/logout");
-    } catch (_) {
+    } catch {
       // ignore logout API errors and still clear local user state
     } finally {
       setUser(null);
@@ -102,6 +123,43 @@ export function AuthProvider({ children }) {
     return (user.permissions || []).includes(permission);
   };
 
+  const handleSessionExpired = useCallback(() => {
+    setUser(null);
+    setAuthError("Your session has expired. Please log in again.");
+
+    if (!location.pathname.startsWith("/user/login")) {
+      navigate("/user/login", {
+        replace: true,
+        state: { from: location },
+      });
+    }
+  }, [location, navigate]);
+
+  useEffect(() => {
+    const interceptorId = api.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (shouldHandleSessionExpiration(error)) {
+          notifySessionExpired();
+        }
+
+        return Promise.reject(error);
+      }
+    );
+
+    return () => {
+      api.interceptors.response.eject(interceptorId);
+    };
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+
+    return () => {
+      window.removeEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+    };
+  }, [handleSessionExpired]);
+
   useEffect(() => {
     const loadCurrentUser = async () => {
       try {
@@ -113,7 +171,7 @@ export function AuthProvider({ children }) {
         } else {
           setUser(null);
         }
-      } catch (_) {
+      } catch {
         setUser(null);
       } finally {
         setAuthLoading(false);
@@ -141,6 +199,7 @@ export function AuthProvider({ children }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
   const context = useContext(AuthContext);
 
