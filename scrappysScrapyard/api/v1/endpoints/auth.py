@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import APIRouter, Response, Request, Depends, Cookie
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -90,12 +92,15 @@ async def register_route(
         password=new_user.password,
     )
 
+    if user_created.get("ok") is not True:
+        return {"ok": False, "message": user_created.get("error", "User creation failed")}
+
     try:
-        await create_user_resources(user_id=user_created.get("user_id", -1), session=session)
+        user_id = uuid.UUID(str(user_created["user_id"]))
+        await create_user_resources(user_id=user_id, session=session)
     except Exception as e:
         print(f"Error creating user resources: {e}")
+        return {"ok": False, "message": "User created but user resources were not created"}
 
-    if user_created.get("ok") == True:
-        return {"ok": True, "message": "User created successfully"}
-    return {"ok": False, "message": user_created.get("error", "User creation failed")}
+    return {"ok": True, "message": "User created successfully"}
 
