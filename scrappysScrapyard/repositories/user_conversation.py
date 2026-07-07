@@ -32,6 +32,8 @@ from schemas.user_conversation import (
     UserConversationUpdate,
 )
 
+CHUNKS_PER_RELEVANT_FILE = 5
+
 
 def _conversation_name_from_message(message_text: str) -> str:
     conversation_name = " ".join(message_text.split()).strip()
@@ -411,7 +413,16 @@ async def stream_openai_response_conversation_text(
 
     embedding = await create_llm_embedding(message_text)
 
-    relivent_file_chunks = await list_file_chunks(session=session, embedding=embedding, limit=6, file_ids=relevant_file_ids)
+    relivent_file_chunks = []
+    for relevant_file_id in relevant_file_ids:
+        relivent_file_chunks.extend(
+            await list_file_chunks(
+                session=session,
+                embedding=embedding,
+                limit=CHUNKS_PER_RELEVANT_FILE,
+                file_id=relevant_file_id,
+            )
+        )
 
     instructions: dict[str, list[str] | str] = {
         "instructions": LLM_INSTRUCTIONS_PATH,
