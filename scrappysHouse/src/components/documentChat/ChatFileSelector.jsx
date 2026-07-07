@@ -1,5 +1,14 @@
 import { useCallback, useMemo, useState } from "react";
 
+const formatFileDate = (value) => {
+  if (!value) return "-";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+
+  return date.toLocaleDateString();
+};
+
 export default function ChatFileSelector({
   selectedChatId,
   userFiles,
@@ -117,7 +126,7 @@ export default function ChatFileSelector({
                     const fileName = file.name;
                     const isSelected = false;
                     const isActive = false;
-                    const updatedAt = "2 days ago";
+                    const updatedAt = formatFileDate(file.updated_at);
 
                     return (
                       <div
@@ -175,7 +184,7 @@ export default function ChatFileSelector({
                 const fileName = file.name;
                 const isSelected = false;
                 const isActive = false;
-                const updatedAt = "2 days ago";
+                const updatedAt = formatFileDate(file.updated_at);
 
                 return (
                   <div
