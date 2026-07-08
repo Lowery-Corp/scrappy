@@ -71,7 +71,7 @@ async def get_user_file_by_file_id(
 
 
 async def update_user_file(
-    user_file_id: int,
+    user_file_id: uuid.UUID,
     user_file_update: UserFileUpdate,
     session: AsyncSession,
 ) -> UserFile | None:

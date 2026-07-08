@@ -115,7 +115,7 @@ async def get_user_file_route(
 
 @router.patch("/{user_file_id}", response_model=UserFileRead)
 async def update_user_file_route(
-    user_file_id: int,
+    user_file_id: uuid.UUID,
     user_file_update: UserFileUpdate,
     current_user: AuthorizedUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),

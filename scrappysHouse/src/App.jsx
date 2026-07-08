@@ -1,15 +1,13 @@
-import { Link, Route, Routes } from "react-router";
+import { Link, Navigate, Route, Routes } from "react-router";
 import { useAuth } from "./auth/AuthProvider";
 import ProtectedRoute from "./components/ProtectedRoute";
 import UserLayout from "./layouts/UserLayout";
 import AuthLayout from "./layouts/AuthLayout";
 import Login from "./pages/Login";
 import CreateUser from "./pages/CreateUser";
-import Home from "./pages/Home";
 import Admin from "./pages/Admin";
 import About from "./pages/About";
 import FileStore from "./pages/FileStore";
-import NotFound from "./pages/NotFound";
 import Unauthorized from "./pages/Unauthorized";
 import DocumentChat from "./pages/DocumentChat";
 
@@ -27,8 +25,9 @@ export default function App() {
         <div className="mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             {/* Logo/Brand */}
-            <div className="flex items-center">
-              {isAuthenticated ? (
+            <div className="flex min-w-0 items-center gap-8">
+              <div className="flex shrink-0 items-center">
+                {isAuthenticated ? (
                 <Link
                   to="/"
                   className="text-xl font-bold text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 transition-colors"
@@ -42,19 +41,13 @@ export default function App() {
                 >
                   Scrappy
                 </Link>
-              )}
-            </div>
+                )}
+              </div>
 
-            {/* Navigation Links */}
-            <div className="hidden md:flex items-center space-x-8">
+              {/* Navigation Links */}
+              <div className="hidden min-w-0 items-center space-x-2 md:flex">
               {isAuthenticated ? (
                 <>
-                  <Link
-                    to="/"
-                    className="text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 px-3 py-2 rounded-md text-sm font-medium transition-colors"
-                  >
-                    Home
-                  </Link>
                   <Link
                     to="/about"
                     className="text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 px-3 py-2 rounded-md text-sm font-medium transition-colors"
@@ -90,15 +83,19 @@ export default function App() {
                   About
                 </Link>
               )}
+              </div>
             </div>
 
             {/* User Menu */}
             <div className="flex items-center space-x-4">
               {isAuthenticated ? (
                 <div className="flex items-center space-x-3">
-                  <span className="text-sm text-gray-700 dark:text-gray-300">
+                  <Link
+                    to="/"
+                    className="rounded-md px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 hover:text-purple-600 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-purple-400"
+                  >
                     Welcome, {user?.username}
-                  </span>
+                  </Link>
                   <button
                     onClick={logout}
                     className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
@@ -137,13 +134,13 @@ export default function App() {
           <Route path="about" element={<About />} />
 
           <Route element={<ProtectedRoute />}>
-            <Route path="/" element={<Home />} />
-            <Route path="/home" element={<Home />} />
+            <Route path="/" element={<About />} />
+            <Route path="/home" element={<About />} />
             <Route path="/store" element={<FileStore />} />
             <Route path="/chat/:conversationId?" element={<DocumentChat />} />
           </Route>
 
-          <Route path="*" element={<NotFound />} />
+          <Route path="*" element={<Navigate to="/about" replace />} />
         </Routes>
       </main>
     </div>
