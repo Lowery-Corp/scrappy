@@ -119,13 +119,26 @@ async def list_user_conversations(
         .offset(offset)
     )
 
-    return [
+    conversations = list(result)
+    conversation_reads = [
         await _conversation_read(
             user_conversation,
             session=session,
         )
-        for user_conversation in result
+        for user_conversation in conversations
     ]
+
+    for conversation_read, user_conversation in zip(conversation_reads, conversations):
+        latest_message = await session.scalar(
+            select(ConversationMessage)
+            .where(ConversationMessage.user_conversation_id == user_conversation.id)
+            .order_by(ConversationMessage.created_at.desc())
+            .limit(1)
+        )
+        if latest_message is not None:
+            conversation_read.preview = latest_message.message_text.strip()
+
+    return conversation_reads
 
 
 async def get_user_conversation(
