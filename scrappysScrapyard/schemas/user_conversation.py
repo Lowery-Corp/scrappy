@@ -25,6 +25,7 @@ class UserConversationRead(BaseModel):
     user_id: uuid.UUID
     conversation_id: uuid.UUID
     conversation_name: str
+    preview: str | None = None
     openai_conversation_id: str | None = None
     conversation_messages: list[ConversationMessageRead] = Field(default_factory=list)
     relevant_file_ids: list[uuid.UUID] = Field(default_factory=list)
