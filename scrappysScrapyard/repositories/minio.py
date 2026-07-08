@@ -41,10 +41,13 @@ async def get_bucket_structure(bucket_name: str) -> dict[str, Any]:
 async def create_bucket(bucket_name: str) -> dict[str, Any]:
     minio_client = get_minio_client()
     try:
+        if minio_client.bucket_exists(bucket_name):
+            return {"message": f"Bucket '{bucket_name}' already exists.", "ok": True}
+
         minio_client.make_bucket(bucket_name)
         return {"message": f"Bucket '{bucket_name}' created successfully.", "ok": True}
     except Exception as e:
-        return {"error": str(e)}
+        return {"error": str(e), "ok": False}
 
 
 async def upload_file_to_minio(

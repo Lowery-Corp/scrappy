@@ -8,12 +8,18 @@ from typing import Any
 from models.user_filestore import UserFileStore
 from models.user_file import UserFile
 from schemas.file_job import FileJobCreate, FileJobUpdate
-from repositories.minio import get_bucket_structure, upload_file_to_minio, delete_path_from_minio
+from repositories.minio import create_bucket, get_bucket_structure, upload_file_to_minio, delete_path_from_minio
 from repositories.file_job import create_file_job, update_file_job
 from repositories.task_queue import enqueue_file_ingestion_task
 
 
 async def create_user_bucketstore(user_id: uuid.UUID, bucket_name: str, session: AsyncSession) -> dict[str, str | bool]:
+    existing_filestore = await session.scalar(
+        select(UserFileStore).where(UserFileStore.user_id == user_id)
+    )
+    if existing_filestore is not None:
+        return {"message": f"UserFilestore already exists for user ID {user_id}", "ok": True}
+
     new_user_filestore = UserFileStore(user_id=user_id, bucket_name=bucket_name, bucket_structure={})
     session.add(new_user_filestore)
     await session.commit()
@@ -47,10 +53,27 @@ async def get_user_bucketstore(user_id: uuid.UUID, session: AsyncSession) -> dic
     )
     user_filestore: UserFileStore | None = result.scalar_one_or_none()
 
-    bucket_structure: dict[str, Any] = user_filestore.bucket_structure if user_filestore else {} # type: ignore
-
     if user_filestore is None:
-        return {"message": f"No UserFileStore found for user ID {user_id}"}
+        bucket_name = f"user-{user_id}-bucket"
+        create_bucket_status = await create_bucket(bucket_name)
+        assert create_bucket_status["ok"], f"Failed to create bucket for user ID {user_id}: {create_bucket_status}"
+
+        create_filestore_status = await create_user_bucketstore(
+            user_id=user_id,
+            bucket_name=bucket_name,
+            session=session,
+        )
+        assert create_filestore_status["ok"], f"Failed to create UserFileStore for user ID {user_id}: {create_filestore_status}"
+
+        sync_filestore_status = await sync_user_bucketstore(user_id=user_id, session=session)
+        assert sync_filestore_status["ok"], f"Failed to sync UserFileStore for user ID {user_id}: {sync_filestore_status}"
+
+        result = await session.execute(
+            select(UserFileStore).where(UserFileStore.user_id == user_id)
+        )
+        user_filestore = result.scalar_one()
+
+    bucket_structure: dict[str, Any] = user_filestore.bucket_structure
 
     user_files = await session.scalars(
         select(UserFile).where(
