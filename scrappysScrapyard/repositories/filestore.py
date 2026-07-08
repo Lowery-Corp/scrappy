@@ -86,6 +86,7 @@ async def get_user_bucketstore(user_id: uuid.UUID, session: AsyncSession) -> dic
             "created_at": user_file.created_at.isoformat(),
             "updated_at": user_file.updated_at.isoformat(),
             "uploaded_at": user_file.uploaded_at.isoformat(),
+            "file_size_bytes": user_file.file_size_bytes,
             "status": user_file.status,
         }
         for user_file in user_files

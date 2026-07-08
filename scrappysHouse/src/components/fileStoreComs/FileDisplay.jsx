@@ -49,6 +49,26 @@ export default function FileDisplay({
     }
   };
 
+  const getStatusBadgeClasses = (status) => {
+    switch (String(status || "").toLowerCase()) {
+      case "uploaded":
+        return "bg-blue-50 text-blue-700 ring-blue-600/20 dark:bg-blue-400/10 dark:text-blue-300 dark:ring-blue-400/30";
+      case "processing":
+        return "bg-amber-50 text-amber-700 ring-amber-600/20 dark:bg-amber-400/10 dark:text-amber-300 dark:ring-amber-400/30";
+      case "ready":
+        return "bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-400/10 dark:text-emerald-300 dark:ring-emerald-400/30";
+      case "error":
+        return "bg-rose-50 text-rose-700 ring-rose-600/20 dark:bg-rose-400/10 dark:text-rose-300 dark:ring-rose-400/30";
+      default:
+        return "bg-gray-100 text-gray-700 ring-gray-500/20 dark:bg-gray-700 dark:text-gray-300 dark:ring-gray-500/30";
+    }
+  };
+
+  const formatStatus = (status) => {
+    const normalizedStatus = String(status || "unknown").toLowerCase();
+    return normalizedStatus.charAt(0).toUpperCase() + normalizedStatus.slice(1);
+  };
+
   const handleFolderClick = async (folder) => {
     try {
       setLoadingFolderId(folder.id);
@@ -164,8 +184,17 @@ export default function FileDisplay({
                   {isFolder ? "—" : item.size}
                 </div>
 
-                <div className="truncate pr-3 text-xs text-gray-500 dark:text-gray-400">
-                  {isFolder ? "—" : item.status ?? "unknown"}
+                <div className="pr-3">
+                  {isFolder ? (
+                    <span className="text-xs text-gray-500 dark:text-gray-400">—</span>
+                  ) : (
+                    <span
+                      className={`inline-flex max-w-full items-center rounded-full px-2 py-0.5 text-[11px] font-medium leading-5 ring-1 ring-inset ${getStatusBadgeClasses(item.status)}`}
+                      title={formatStatus(item.status)}
+                    >
+                      <span className="truncate">{formatStatus(item.status)}</span>
+                    </span>
+                  )}
                 </div>
 
                 <div className="truncate pr-3 text-xs text-gray-500 dark:text-gray-400">

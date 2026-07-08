@@ -32,6 +32,12 @@ export default function ChatFileSelector({
     [getFileName],
   );
 
+  const onlyReadyFiles = useCallback((files) => {
+    return files.filter(
+      (file) => String(file.status || "").toLowerCase() === "ready",
+    );
+  }, []);
+
   const sortFilesByName = useCallback((files) => {
     return [...files].sort((a, b) => {
       const nameA = (a.name || "").toLowerCase();
@@ -45,7 +51,8 @@ export default function ChatFileSelector({
   }, []);
 
   const selectedFiles = useMemo(() => {
-    const parsedSelectedFiles = userFiles.filter((file) =>
+    const readyUserFiles = onlyReadyFiles(userFiles);
+    const parsedSelectedFiles = readyUserFiles.filter((file) =>
       selectedFileIds.includes(file.file_id),
     );
 
@@ -57,10 +64,11 @@ export default function ChatFileSelector({
     const filteredPdfFiles = removeNonePdfFiles(selectedFilesWithNames);
 
     return sortFilesByName(filteredPdfFiles);
-  }, [getFileName, removeNonePdfFiles, selectedFileIds, sortFilesByName, userFiles]);
+  }, [getFileName, onlyReadyFiles, removeNonePdfFiles, selectedFileIds, sortFilesByName, userFiles]);
 
   const files = useMemo(() => {
-    const notSelectedFiles = userFiles.filter(
+    const readyUserFiles = onlyReadyFiles(userFiles);
+    const notSelectedFiles = readyUserFiles.filter(
       (file) => !selectedFileIds.includes(file.file_id),
     );
 
@@ -72,7 +80,7 @@ export default function ChatFileSelector({
     const filteredPdfFiles = removeNonePdfFiles(filesWithNames);
 
     return sortFilesByName(filteredPdfFiles);
-  }, [getFileName, removeNonePdfFiles, selectedFileIds, sortFilesByName, userFiles]);
+  }, [getFileName, onlyReadyFiles, removeNonePdfFiles, selectedFileIds, sortFilesByName, userFiles]);
 
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
 

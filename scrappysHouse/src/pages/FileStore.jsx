@@ -15,6 +15,23 @@ const formatFileDate = (value) => {
   return date.toLocaleDateString();
 };
 
+const formatFileSize = (value) => {
+  const bytes = Number(value);
+
+  if (!Number.isFinite(bytes) || bytes < 0) return "-";
+  if (bytes === 0) return "0 B";
+
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  const unitIndex = Math.min(
+    Math.floor(Math.log(bytes) / Math.log(1024)),
+    units.length - 1,
+  );
+  const size = bytes / 1024 ** unitIndex;
+  const maximumFractionDigits = unitIndex === 0 ? 0 : 1;
+
+  return `${size.toLocaleString(undefined, { maximumFractionDigits })} ${units[unitIndex]}`;
+};
+
 export default function FileStore() {
   const [files, setFiles] = useState([]);
   const [folders, setFolders] = useState([]);
@@ -97,7 +114,7 @@ export default function FileStore() {
             id: `file-${idCounter++}`,
             name,
             type: "file",
-            size: "-",
+            size: formatFileSize(metadata.file_size_bytes),
             path: itemPath,
             createdAt: formatFileDate(metadata.created_at ?? metadata.uploaded_at),
             updatedAt: formatFileDate(metadata.updated_at),
@@ -150,7 +167,7 @@ export default function FileStore() {
           id: `file-${Date.now()}-${file.name}`,
           name: file.name,
           type: "file",
-          size: (file.size / (1024 * 1024)).toFixed(1) + " MB",
+          size: formatFileSize(file.size),
           path: currentPath + file.name,
           createdAt: response?.created_at
             ? formatFileDate(response.created_at)
