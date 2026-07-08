@@ -1,4 +1,4 @@
-import { api } from "./api";
+import { api, notifySessionExpired } from "./api";
 
 
 const parseStreamEvent = (rawEvent) => {
@@ -25,6 +25,11 @@ const parseStreamEvent = (rawEvent) => {
 };
 
 const readConversationStream = async (response, handlers = {}) => {
+  if (response.status === 401) {
+    notifySessionExpired();
+    throw new Error("Your session has expired. Please log in again.");
+  }
+
   if (!response.ok) {
     throw new Error(await response.text());
   }

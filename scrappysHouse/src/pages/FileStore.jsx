@@ -6,6 +6,15 @@ import UploadProgress from "../components/fileStoreComs/UploadProgress";
 import FileStoreHeader from "../components/fileStoreComs/FileStoreHeader";
 import FileDisplay from "../components/fileStoreComs/FileDisplay";
 
+const formatFileDate = (value) => {
+  if (!value) return "-";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+
+  return date.toLocaleDateString();
+};
+
 export default function FileStore() {
   const [files, setFiles] = useState([]);
   const [folders, setFolders] = useState([]);
@@ -64,6 +73,7 @@ export default function FileStore() {
       const response = await getBucketStructure();
 
       const structure = response?.bucket_structure ?? response ?? {};
+      const fileMetadata = response?.file_metadata ?? {};
       const currentFolder = getNodeAtPath(structure, currentPath);
 
       const nextFolders = [];
@@ -82,13 +92,16 @@ export default function FileStore() {
             createdAt: new Date().toISOString().split("T")[0],
           });
         } else {
+          const metadata = fileMetadata[itemPath] ?? {};
           nextFiles.push({
             id: `file-${idCounter++}`,
             name,
             type: "file",
             size: "-",
             path: itemPath,
-            createdAt: new Date().toISOString().split("T")[0],
+            createdAt: formatFileDate(metadata.created_at ?? metadata.uploaded_at),
+            updatedAt: formatFileDate(metadata.updated_at),
+            status: metadata.status ?? "unknown",
           });
         }
       });
@@ -139,7 +152,12 @@ export default function FileStore() {
           type: "file",
           size: (file.size / (1024 * 1024)).toFixed(1) + " MB",
           path: currentPath + file.name,
-          createdAt: new Date().toISOString().split("T")[0],
+          createdAt: response?.created_at
+            ? formatFileDate(response.created_at)
+            : new Date().toLocaleDateString(),
+          updatedAt: response?.updated_at
+            ? formatFileDate(response.updated_at)
+            : new Date().toLocaleDateString(),
           ...(response || {}),
         };
 

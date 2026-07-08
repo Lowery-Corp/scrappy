@@ -18,7 +18,42 @@ import ChatFileSelector from "../components/documentChat/ChatFileSelector";
 import createOptimisticMessage from "../components/documentChat/OptimisticMessage";
 import PopupBanner from "../components/helpers/PopupBanner";
 
+const getMessagePreview = (conversationMessages = []) => {
+  if (!Array.isArray(conversationMessages)) {
+    return "";
+  }
 
+  const latestMessage = [...conversationMessages]
+    .reverse()
+    .find((message) => message?.message_text?.trim());
+
+  return latestMessage?.message_text.trim() ?? "";
+};
+
+const withConversationPreview = (conversation, fallbackPreview = "") => ({
+  ...conversation,
+  preview:
+    conversation?.preview ||
+    getMessagePreview(conversation?.conversation_messages) ||
+    fallbackPreview,
+});
+
+const mergeConversationPreviews = (conversations, previousChats) =>
+  conversations.map((conversation) => {
+    const previousChat = previousChats.find(
+      (chat) => chat.conversation_id === conversation.conversation_id,
+    );
+
+    return withConversationPreview(
+      {
+        ...conversation,
+        conversation_messages:
+          conversation.conversation_messages ??
+          previousChat?.conversation_messages,
+      },
+      previousChat?.preview,
+    );
+  });
 
 export default function DocumentChat() {
   const { user } = useAuth();
@@ -50,6 +85,29 @@ export default function DocumentChat() {
 
   const activeChatFileCount = selectedFileIds.length;
 
+  const updateConversationPreview = (
+    targetConversationId,
+    conversationMessages,
+  ) => {
+    const preview = getMessagePreview(conversationMessages);
+
+    if (!preview) {
+      return;
+    }
+
+    setUserChats((previousChats) =>
+      previousChats.map((chat) =>
+        chat.conversation_id === targetConversationId
+          ? {
+              ...chat,
+              preview,
+              conversation_messages: conversationMessages,
+            }
+          : chat,
+      ),
+    );
+  };
+
   const handleChatReset = () => {
     setMessages([]);
     setSelectedFilesIds([]);
@@ -64,7 +122,9 @@ export default function DocumentChat() {
         ? conversations
         : [];
 
-      setUserChats(safeConversations);
+      setUserChats((previousChats) =>
+        mergeConversationPreviews(safeConversations, previousChats),
+      );
 
       if (conversationId && conversationId !== "new") {
         const selectedConversation =
@@ -83,6 +143,7 @@ export default function DocumentChat() {
         );
 
         setMessages(conversationMessages);
+      updateConversationPreview(conversationId, conversationMessages);
       } else {
         setMessages([]);
         setSelectedFilesIds([]);
@@ -111,7 +172,9 @@ export default function DocumentChat() {
           ? conversations
           : [];
 
-        setUserChats(safeConversations);
+        setUserChats((previousChats) =>
+          mergeConversationPreviews(safeConversations, previousChats),
+        );
         setUserFiles(Array.isArray(files) ? files : []);
 
         if (conversationId && conversationId !== "new") {
@@ -133,6 +196,7 @@ export default function DocumentChat() {
 
           setSelectedFilesIds(selectedConversation?.relevant_file_ids ?? []);
           setMessages(conversationMessages);
+          updateConversationPreview(conversationId, conversationMessages);
         } else {
           setMessages([]);
           setSelectedFilesIds([]);
@@ -202,6 +266,20 @@ export default function DocumentChat() {
           message.id === optimisticAgentMessage.id ? agentMessage : message,
         ),
       );
+
+      const targetConversationId =
+        activeChatId ?? streamingConversationId.current;
+      const preview = agentMessage?.message_text?.trim();
+
+      if (targetConversationId && preview) {
+        setUserChats((previousChats) =>
+          previousChats.map((chat) =>
+            chat.conversation_id === targetConversationId
+              ? { ...chat, preview }
+              : chat,
+          ),
+        );
+      }
     };
 
     const showAgentError = () => {
@@ -225,6 +303,16 @@ export default function DocumentChat() {
       optimisticAgentMessage,
     ]);
 
+    if (activeChatId) {
+      setUserChats((previousChats) =>
+        previousChats.map((chat) =>
+          chat.conversation_id === activeChatId
+            ? { ...chat, preview: trimmedMessage }
+            : chat,
+        ),
+      );
+    }
+
     if (!activeChatId) {
       try {
         await createConversationStream(
@@ -240,7 +328,7 @@ export default function DocumentChat() {
               streamingConversationId.current = conversation.conversation_id;
 
               setUserChats((previousChats) => [
-                conversation,
+                withConversationPreview(conversation, trimmedMessage),
                 ...previousChats.filter(
                   (chat) =>
                     chat.conversation_id !== conversation.conversation_id,
@@ -285,6 +373,18 @@ export default function DocumentChat() {
                     : message,
                 ),
               );
+
+              const preview = createdUserMessage?.message_text?.trim();
+
+              if (preview) {
+                setUserChats((previousChats) =>
+                  previousChats.map((chat) =>
+                    chat.conversation_id === activeChatId
+                      ? { ...chat, preview }
+                      : chat,
+                  ),
+                );
+              }
             },
             delta: appendAgentDelta,
             message: replaceAgentMessage,
@@ -345,6 +445,7 @@ export default function DocumentChat() {
     try {
       const conversationMessages = await getConversationMessages(conversationId);
       setMessages(conversationMessages);
+      updateConversationPreview(conversationId, conversationMessages);
     } catch (error) {
       console.error("Failed to load conversation messages:", error);
       setMessages([]);
@@ -427,7 +528,7 @@ export default function DocumentChat() {
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
       <PopupBanner />
-      <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-[1800px] flex-col gap-2 px-2 py-2 lg:flex-row lg:gap-3 lg:px-3">
+      <div className="flex min-h-[calc(100vh-4rem)] w-full flex-col gap-2 px-2 py-2 lg:flex-row lg:gap-0 lg:p-0">
         <ChatSidebar
           chats={userChats}
           activeChatId={activeChat?.conversation_id ?? null}
@@ -440,7 +541,7 @@ export default function DocumentChat() {
           setMultiSelectMode={setMultiSelectMode}
         />
 
-        <section className="flex h-[calc(100vh-5rem)] min-h-[480px] flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white/95 shadow-lg dark:border-gray-700 dark:bg-gray-800/95 lg:h-[calc(100vh-4.75rem)]">
+        <section className="flex h-[calc(100vh-5rem)] min-h-[480px] flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white/95 shadow-lg dark:border-gray-700 dark:bg-gray-800/95 lg:h-[calc(100vh-4rem)] lg:min-w-0 lg:rounded-none lg:border-y-0 lg:shadow-none">
           <ChatPanelHeader
             chat={activeChat}
             activeChatFileCount={activeChatFileCount}

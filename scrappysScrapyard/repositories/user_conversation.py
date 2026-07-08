@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.conversation_message import ConversationMessage
 from models.user_conversation import UserConversation
+from models.user_file import UserFile
 from repositories.openai import (
     create_openai_conversation,
     create_openai_response,
@@ -31,6 +32,8 @@ from schemas.user_conversation import (
     UserConversationRead,
     UserConversationUpdate,
 )
+
+CHUNKS_PER_RELEVANT_FILE = 5
 
 
 def _conversation_name_from_message(message_text: str) -> str:
@@ -196,6 +199,7 @@ async def check_file_ownership(user_id: uuid.UUID, file_id: uuid.UUID, session: 
         )
     )
     return result is not None
+
 
 async def update_user_conversation_files(
     user_id: uuid.UUID,
@@ -410,11 +414,33 @@ async def stream_openai_response_conversation_text(
 
     embedding = await create_llm_embedding(message_text)
 
-    relivent_file_chunks = await list_file_chunks(session=session, embedding=embedding, limit=6, file_ids=relevant_file_ids)
+    relevant_file_chunks_by_file: list[str] = []
+    for relevant_file_id in relevant_file_ids:
+        user_file = await session.scalar(
+            select(UserFile).where(
+                UserFile.user_id == user_id,
+                UserFile.file_id == relevant_file_id,
+            )
+        )
+        file_label = (
+            f"{user_file.original_filename} ({relevant_file_id})"
+            if user_file is not None
+            else str(relevant_file_id)
+        )
+        file_chunks = await list_file_chunks(
+            session=session,
+            embedding=embedding,
+            limit=CHUNKS_PER_RELEVANT_FILE,
+            file_id=relevant_file_id,
+        )
+        relevant_file_chunks_by_file.append(
+            f"Data from file {file_label}:\n"
+            + "\n\n".join(chunk.chunk_text for chunk in file_chunks)
+        )
 
     instructions: dict[str, list[str] | str] = {
         "instructions": LLM_INSTRUCTIONS_PATH,
-        "relevant_file_chunks": [chunk.chunk_text for chunk in relivent_file_chunks],
+        "relevant_file_chunks": relevant_file_chunks_by_file,
     }
 
     async for event in stream_openai_response_text(

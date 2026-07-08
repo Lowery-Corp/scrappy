@@ -52,7 +52,23 @@ async def get_user_bucketstore(user_id: uuid.UUID, session: AsyncSession) -> dic
     if user_filestore is None:
         return {"message": f"No UserFileStore found for user ID {user_id}"}
 
-    return {"bucket_structure": bucket_structure}
+    user_files = await session.scalars(
+        select(UserFile).where(
+            UserFile.user_id == user_id,
+            UserFile.status != "deleted",
+        )
+    )
+    file_metadata = {
+        f"/{user_file.storage_key.removeprefix('home/').lstrip('/')}": {
+            "created_at": user_file.created_at.isoformat(),
+            "updated_at": user_file.updated_at.isoformat(),
+            "uploaded_at": user_file.uploaded_at.isoformat(),
+            "status": user_file.status,
+        }
+        for user_file in user_files
+    }
+
+    return {"bucket_structure": bucket_structure, "file_metadata": file_metadata}
 
 
 async def add_file_to_bucketstore(user_id: uuid.UUID, file_path: str, file: UploadFile, session: AsyncSession) -> dict[str, str | bool]:
