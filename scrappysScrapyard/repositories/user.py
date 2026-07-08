@@ -15,7 +15,7 @@ async def create_user_resources(user_id: int, session: AsyncSession) -> dict[str
         bucket_name=bucket_name,
         session=session,
     )
-    assert filestore_status.get("message") == f"UserFilestore created for user ID {user_id}", f"Failed to create UserFilestore for user ID {user_id}"
+    assert filestore_status.get("ok") is True, f"Failed to create UserFilestore for user ID {user_id}"
 
     # Simulate bucket creation for this example
     print(f"Creating bucket '{bucket_name}' for user ID {user_id}")
