@@ -1,23 +1,39 @@
 const capabilities = [
   {
-    title: "Private file workspace",
+    title: "Private workspace",
+    stat: "Files",
     description:
-      "Users can upload, browse, organize, sync, and delete files through a protected file store backed by per-user object storage and database metadata.",
+      "Upload, browse, organize, sync, and delete documents through a protected store backed by per-user object storage and database metadata.",
+    color:
+      "border-violet-200 bg-violet-50 text-violet-900 shadow-violet-200/70 dark:border-violet-800 dark:bg-violet-950/40 dark:text-violet-100 dark:shadow-violet-950/30",
+    accent: "bg-violet-500",
   },
   {
     title: "Document chat",
+    stat: "Ask",
     description:
-      "Ready documents can be attached to conversations so users can ask questions, compare material, and keep context across chat sessions.",
+      "Attach ready documents to conversations, ask questions, compare material, and keep the selected sources tied to chat history.",
+    color:
+      "border-sky-200 bg-sky-50 text-sky-900 shadow-sky-200/70 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-100 dark:shadow-sky-950/30",
+    accent: "bg-sky-500",
   },
   {
-    title: "Processing pipeline",
+    title: "Processing flow",
+    stat: "Ready",
     description:
-      "Uploaded files are tracked through metadata records and file jobs so ingestion, chunking, indexing, and readiness can be handled outside the UI.",
+      "Track uploads through jobs and metadata so ingestion, chunking, indexing, and readiness can run outside the main interface.",
+    color:
+      "border-emerald-200 bg-emerald-50 text-emerald-900 shadow-emerald-200/70 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-100 dark:shadow-emerald-950/30",
+    accent: "bg-emerald-500",
   },
   {
-    title: "Authenticated access",
+    title: "Scoped access",
+    stat: "Auth",
     description:
-      "The app uses protected routes, HTTP-only session cookies, and role-aware screens so user data stays scoped to the signed-in account.",
+      "Protected routes, HTTP-only session cookies, and role-aware screens keep each account focused on its own files and tools.",
+    color:
+      "border-amber-200 bg-amber-50 text-amber-900 shadow-amber-200/70 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100 dark:shadow-amber-950/30",
+    accent: "bg-amber-500",
   },
 ];
 
@@ -26,110 +42,120 @@ const structure = [
     name: "scrappysHouse",
     role: "React frontend",
     details:
-      "Vite, React Router, Tailwind CSS, and Axios power the browser experience for login, the file store, document chat, admin views, and shared UI components.",
+      "Vite, React Router, Tailwind CSS, and Axios power the browser experience for login, files, chat, admin views, and shared UI.",
   },
   {
     name: "scrappysScrapyard",
     role: "FastAPI backend",
     details:
-      "FastAPI routes expose authentication, blob storage, file metadata, file jobs, file chunks, conversations, messages, and health checks under /api/v1.",
+      "API routes expose authentication, blob storage, file metadata, jobs, chunks, conversations, messages, and health checks.",
   },
   {
     name: "PostgreSQL",
-    role: "Persistent metadata",
+    role: "Metadata",
     details:
-      "SQLAlchemy models and Alembic migrations manage user file stores, uploaded file records, processing jobs, document chunks, conversations, logs, and related application state.",
+      "SQLAlchemy models and Alembic migrations manage file stores, uploaded records, processing jobs, chunks, conversations, and logs.",
   },
   {
     name: "Object storage",
-    role: "Uploaded file content",
+    role: "File content",
     details:
-      "MinIO-compatible storage keeps the raw user files in per-user buckets while PostgreSQL stores the searchable metadata and folder structure.",
+      "MinIO-compatible storage keeps raw user files in per-user buckets while the database stores searchable metadata.",
   },
   {
-    name: "Redis and workers",
-    role: "Support services",
+    name: "Redis, RabbitMQ, and Celery",
+    role: "Caching and workers",
     details:
-      "Redis supports backend caching, while file jobs can be queued for offloaded ingestion work such as parsing, chunking, embedding, and readiness updates.",
+      "Redis supports backend caching, while RabbitMQ and Celery run file jobs for offloaded parsing, chunking, embedding, and readiness updates.",
   },
 ];
 
+function Bubble({ item, className = "" }) {
+  return (
+    <article
+      tabIndex={0}
+      className={[
+        "group relative z-0 flex aspect-square w-full max-w-64 flex-col items-center justify-center overflow-hidden rounded-full border p-6 text-center shadow-sm outline-none transition-all duration-300 hover:z-10 hover:-translate-y-1 hover:scale-105 hover:shadow-xl focus:z-10 focus:scale-105 focus-visible:-translate-y-1 focus-visible:ring-4 focus-visible:ring-purple-200 dark:focus-visible:ring-purple-900",
+        item.color,
+        className,
+      ].join(" " )}
+    >
+      <span
+        className={["absolute right-8 top-8 h-3 w-3 rounded-full", item.accent].join(" " )}
+      />
+      <div className="transition-transform duration-300 group-hover:-translate-y-14 group-focus:-translate-y-14">
+        <p className="text-xs font-semibold uppercase tracking-normal opacity-70">
+          {item.stat || item.role}
+        </p>
+        <h2 className="mt-2 max-w-44 text-xl font-semibold leading-tight text-inherit">
+          {item.title || item.name}
+        </h2>
+      </div>
+      <p className="absolute inset-x-7 bottom-7 translate-y-3 text-sm leading-5 opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100 group-focus:translate-y-0 group-focus:opacity-100">
+        {item.description || item.details}
+      </p>
+    </article>
+  );
+}
+
 export default function About() {
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-gray-50 px-4 py-8 text-gray-900 dark:bg-gray-900 dark:text-gray-100 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-5xl space-y-8">
-        <section className="space-y-4">
-          <p className="text-sm font-medium uppercase text-purple-700 dark:text-purple-300">
+    <div className="min-h-[calc(100vh-4rem)] overflow-hidden bg-slate-50 px-4 py-10 text-gray-900 dark:bg-gray-900 dark:text-gray-100 sm:px-6 lg:px-8">
+      <div className="mx-auto flex max-w-6xl flex-col items-center gap-12 text-center">
+        <section className="flex max-w-4xl flex-col items-center">
+          <p className="text-sm font-semibold uppercase tracking-normal text-purple-700 dark:text-purple-300">
             About Scrappy
           </p>
-          <div className="max-w-3xl space-y-4">
-            <h1 className="text-3xl font-semibold tracking-normal text-gray-950 dark:text-white sm:text-4xl">
-              A file workspace and document chat system for searchable knowledge.
-            </h1>
-            <p className="text-base leading-7 text-gray-700 dark:text-gray-300">
-              Scrappy is a full-stack application for storing user documents,
-              processing them into searchable metadata, and using those files as
-              context in AI-assisted conversations. It combines a secure file
-              store, document ingestion workflow, and conversation interface so
-              users can move from upload to analysis without leaving the app.
-            </p>
-          </div>
+          <h1 className="mt-4 max-w-4xl text-balance text-4xl font-semibold leading-tight tracking-normal text-gray-950 dark:text-white sm:text-5xl">
+            A centered workspace for files, search, and document chat.
+          </h1>
+          <p className="mt-5 max-w-3xl text-base leading-7 text-gray-700 dark:text-gray-300">
+            Scrappy stores user documents, processes them into searchable
+            metadata, and turns ready files into context for AI-assisted
+            conversations. The experience is built around getting from upload to
+            analysis without leaving the app.
+          </p>
         </section>
 
-        <section className="grid gap-4 md:grid-cols-2">
-          {capabilities.map((capability) => (
-            <article
+        <section className="grid w-full max-w-5xl grid-cols-1 place-items-center gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          {capabilities.map((capability, index) => (
+            <Bubble
               key={capability.title}
-              className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800"
-            >
-              <h2 className="text-base font-semibold text-gray-950 dark:text-white">
-                {capability.title}
-              </h2>
-              <p className="mt-2 text-sm leading-6 text-gray-600 dark:text-gray-300">
-                {capability.description}
-              </p>
-            </article>
+              item={capability}
+              className={index % 2 === 0 ? "lg:mt-8" : "lg:mb-8"}
+            />
           ))}
         </section>
 
-        <section className="space-y-3">
-          <h2 className="text-xl font-semibold text-gray-950 dark:text-white">
+        <section className="flex max-w-3xl flex-col items-center gap-3">
+          <h2 className="text-2xl font-semibold text-gray-950 dark:text-white">
             What The App Is For
           </h2>
-          <div className="space-y-3 text-sm leading-6 text-gray-700 dark:text-gray-300">
-            <p>
-              The core purpose of Scrappy is to make document-heavy work easier
-              to manage and query. A user can upload files into a personal store,
-              wait for processing to mark usable documents as ready, then select
-              those files in the document chat sidebar as context for a
-              conversation.
-            </p>
-            <p>
-              This makes the app useful for reviewing internal documents, asking
-              questions about uploaded PDFs, comparing source material, building
-              summaries, and keeping chat history tied to the files that informed
-              each conversation. Admin-facing metadata and job endpoints support
-              inspection and repair of the ingestion flow when files need
-              operational attention.
-            </p>
-          </div>
+          <p className="text-sm leading-6 text-gray-700 dark:text-gray-300">
+            Scrappy is meant for document-heavy work: reviewing internal files,
+            asking questions about uploaded PDFs, comparing source material,
+            building summaries, and keeping chat history connected to the files
+            that informed each conversation.
+          </p>
+          <p className="text-sm leading-6 text-gray-700 dark:text-gray-300">
+            Admin-facing metadata and job endpoints support inspection and
+            repair of the ingestion flow when files need operational attention.
+          </p>
         </section>
 
-        <section className="space-y-4">
-          <div>
-            <h2 className="text-xl font-semibold text-gray-950 dark:text-white">
+        <section className="flex w-full flex-col items-center gap-5">
+          <div className="max-w-3xl">
+            <h2 className="text-2xl font-semibold text-gray-950 dark:text-white">
               App Structure
             </h2>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-gray-600 dark:text-gray-300">
-              The repository is split into a browser client, an API service, and
-              supporting infrastructure. Each layer has a focused responsibility
-              so UI behavior, API contracts, persistence, and background work can
-              evolve independently.
+            <p className="mt-3 text-sm leading-6 text-gray-600 dark:text-gray-300">
+              The repository is split into focused layers so UI behavior, API
+              contracts, persistence, and background work can evolve cleanly.
             </p>
           </div>
 
-          <div className="overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
-            <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,2fr)] border-b border-gray-200 bg-gray-100 px-4 py-2 text-xs font-semibold uppercase text-gray-500 dark:border-gray-700 dark:bg-gray-900/50 dark:text-gray-400">
+          <div className="w-full max-w-5xl overflow-hidden rounded-lg border border-gray-200 bg-white text-left shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,2fr)] border-b border-gray-200 bg-gray-100 px-4 py-2 text-xs font-semibold uppercase tracking-normal text-gray-500 dark:border-gray-700 dark:bg-gray-900/50 dark:text-gray-400">
               <div>Layer</div>
               <div>Role</div>
               <div>Responsibility</div>
@@ -138,7 +164,7 @@ export default function About() {
             {structure.map((item) => (
               <div
                 key={item.name}
-                className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,2fr)] gap-3 border-b border-gray-100 px-4 py-3 text-sm last:border-b-0 dark:border-gray-700"
+                className="grid grid-cols-1 gap-2 border-b border-gray-100 px-4 py-4 text-sm last:border-b-0 dark:border-gray-700 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,2fr)] md:gap-3 md:py-3"
               >
                 <div className="font-medium text-gray-950 dark:text-white">
                   {item.name}
