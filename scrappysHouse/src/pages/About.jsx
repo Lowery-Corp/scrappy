@@ -112,8 +112,7 @@ export default function About() {
           <p className="mt-5 max-w-3xl text-base leading-7 text-gray-700 dark:text-gray-300">
             Scrappy stores user documents, processes them into searchable
             metadata, and turns ready files into context for AI-assisted
-            conversations. The experience is built around getting from upload to
-            analysis without leaving the app.
+            conversations. Go from upload to analysis without leaving the app.
           </p>
         </section>
 
