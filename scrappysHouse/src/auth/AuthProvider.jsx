@@ -33,10 +33,9 @@ export function AuthProvider({ children }) {
     try {
       setAuthError(null);
 
-      const response = await api.post("/api/v1/auth/login", {
-        email: username,
-        password,
-      });
+      const body = { username, password };
+      const response = await api.post("/api/v1/auth/login", body);
+      console.log("Login response:", response.data);
 
       if (response.data?.user) {
         setUser(response.data.user);
@@ -44,8 +43,8 @@ export function AuthProvider({ children }) {
       }
 
       const meResponse = await api.get("/api/v1/auth/me");
-      if (meResponse.data?.user) {
-        setUser(meResponse.data.user);
+      if (meResponse.data?.username) {
+        setUser(meResponse.data.username);
         return { ok: true };
       }
 

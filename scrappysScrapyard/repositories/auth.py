@@ -1,4 +1,4 @@
-from httpx import ConnectTimeout, HTTPError
+import uuid
 from typing import Any
 
 from httpxC.http_client import http_client
@@ -8,46 +8,41 @@ from core.retry import build_http_retry
 
 
 @build_http_retry(attempts=2)
-async def login_user(username: str, password: str) -> UserToken | bool:
+async def login_user(username: str, password: str) -> str:
     auth_endpoint: str = f"{settings.auth_api_url}/api/v1/auth/login"
     response = await http_client.post(
         auth_endpoint,
-        json={"email": username, "password": password},
+        json={
+            "email": username,
+            "password": password,
+            "internal": True
+        },
     )
     response.raise_for_status()
-    data = response.json()
+    data: dict[str, Any] = response.json()
+    token: str = data.get("token", "")
 
-    user_token = UserToken(
-        token=data.get("token", "fake-token"),
-    )
+    if token == "":
+        raise ValueError("Token not found in response data")
 
-    return user_token
+    return token
 
 
 @build_http_retry(attempts=2)
 async def get_user_from_token(token: str) -> AuthorizedUser | None:
     auth_endpoint = f"{settings.auth_api_url}/api/v1/auth/me"
-    headers = {"Authorization": f"Bearer {token}"}
+    headers = {"token": token}
+    response = await http_client.post(auth_endpoint, headers=headers)
+    response.raise_for_status()
+    data = response.json()
 
-    try:
-        response = await http_client.get(auth_endpoint, headers=headers)
-
-        if response.status_code == 401:
-            return None
-
-        response.raise_for_status()
-        data = response.json()
-
-        return AuthorizedUser(
-            id=str(data.get("id", "")),
-            username=data.get("username", ""),
-            email=data.get("email", ""),
-            is_admin=data.get("is_admin", False),
-        )
-    except ConnectTimeout:
+    if not data or "id" not in data or "username" not in data:
         return None
-    except HTTPError:
-        return None
+    return AuthorizedUser(
+        id=uuid.UUID(data.get("id", "")),
+        username=data.get("username", ""),
+        is_admin=data.get("is_admin", False),
+    )
 
 
 async def blacklist_token(token: str) -> bool:
