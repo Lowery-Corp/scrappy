@@ -8,8 +8,10 @@ from typing import Any
 from models.user_filestore import UserFileStore
 from models.user_file import UserFile
 from schemas.file_job import FileJobCreate, FileJobUpdate
+from schemas.user_file import UserFileCreate
 from repositories.minio import create_bucket, get_bucket_structure, upload_file_to_minio, delete_path_from_minio
 from repositories.file_job import create_file_job, update_file_job
+from repositories.user_file import get_user_file, delete_user_file, create_user_file, list_user_files
 from repositories.task_queue import enqueue_file_ingestion_task
 
 
@@ -26,28 +28,18 @@ async def create_user_bucketstore(user_id: uuid.UUID, bucket_name: str, session:
     return {"message": f"UserFilestore created for user ID {user_id}", "ok": True}
 
 
-async def sync_user_bucketstore(
-    user_id: uuid.UUID,
-    session: AsyncSession,
-) -> dict[str, str | bool]:
-
-    new_bucket_structure = await get_bucket_structure(bucket_name=f"user-{user_id}-bucket")
-    stmt = (
+async def update_user_bucketstore(user_id: uuid.UUID, bucket_structure: dict[str, Any], session: AsyncSession) -> UserFileStore | None:
+    result = await session.execute(
         update(UserFileStore)
         .where(UserFileStore.user_id == user_id)
-        .values(bucket_structure=new_bucket_structure)
+        .values(bucket_structure=bucket_structure)
+        .returning(UserFileStore)
     )
-
-    result = await session.execute(stmt)
-    rowcount: int = int(result.rowcount) or 0
-
-    assert rowcount > 0, f"No UserFileStore found for user ID {user_id}"
-
     await session.commit()
-    return {"message": f"UserFileStore updated for user ID {user_id}", "ok": True}
+    return result.scalar_one_or_none()
 
 
-async def get_user_bucketstore(user_id: uuid.UUID, session: AsyncSession) -> dict[str, Any]:
+async def get_user_bucketstore(user_id: uuid.UUID, session: AsyncSession) -> UserFileStore:
     result = await session.execute(
         select(UserFileStore).where(UserFileStore.user_id == user_id)
     )
@@ -65,37 +57,59 @@ async def get_user_bucketstore(user_id: uuid.UUID, session: AsyncSession) -> dic
         )
         assert create_filestore_status["ok"], f"Failed to create UserFileStore for user ID {user_id}: {create_filestore_status}"
 
-        sync_filestore_status = await sync_user_bucketstore(user_id=user_id, session=session)
-        assert sync_filestore_status["ok"], f"Failed to sync UserFileStore for user ID {user_id}: {sync_filestore_status}"
+        # sync_filestore_status = await sync_user_bucketstore(user_id=user_id, session=session)
+        # assert sync_filestore_status["ok"], f"Failed to sync UserFileStore for user ID {user_id}: {sync_filestore_status}"
 
-        result = await session.execute(
-            select(UserFileStore).where(UserFileStore.user_id == user_id)
-        )
+        result = await session.execute(select(UserFileStore).where(UserFileStore.user_id == user_id))
         user_filestore = result.scalar_one()
 
-    bucket_structure: dict[str, Any] = user_filestore.bucket_structure
 
-    user_files = await session.scalars(
-        select(UserFile).where(
-            UserFile.user_id == user_id,
-            UserFile.status != "deleted",
-        )
+    # bucket_structure = user_filestore.bucket_structure # type: ignore
+
+    # user_files = await session.scalars(
+    #     select(UserFile).where(
+    #         UserFile.user_id == user_id,
+    #         UserFile.status != "deleted",
+    #     )
+    # )
+
+    # file_metadata: dict[str, dict[str, Any]] = {
+    #     f"/{user_file.storage_key.removeprefix('home/').lstrip('/')}": {
+    #         "created_at": user_file.created_at.isoformat(),
+    #         "updated_at": user_file.updated_at.isoformat(),
+    #         "uploaded_at": user_file.uploaded_at.isoformat(),
+    #         "file_size_bytes": user_file.file_size_bytes,
+    #         "status": user_file.status,
+    #     }
+    #     for user_file in user_files
+    # }
+
+    # return {"bucket_structure": bucket_structure, "file_metadata": file_metadata}
+    return user_filestore
+
+
+async def sync_user_bucketstore(user_id: uuid.UUID, session: AsyncSession) -> dict[str, str | bool]:
+    user_bucket_store = await get_user_bucketstore(user_id=user_id, session=session)
+    assert user_bucket_store is not None, f"No UserFileStore found for user ID {user_id}"
+
+    new_bucket_structure = await get_bucket_structure(bucket_name=f"user-{user_id}-bucket")
+
+    updated_user_bucketstore = await update_user_bucketstore(
+        user_id=user_id,
+        bucket_structure=new_bucket_structure,
+        session=session,
     )
-    file_metadata = {
-        f"/{user_file.storage_key.removeprefix('home/').lstrip('/')}": {
-            "created_at": user_file.created_at.isoformat(),
-            "updated_at": user_file.updated_at.isoformat(),
-            "uploaded_at": user_file.uploaded_at.isoformat(),
-            "file_size_bytes": user_file.file_size_bytes,
-            "status": user_file.status,
-        }
-        for user_file in user_files
-    }
+    assert updated_user_bucketstore is not None, f"Failed to update UserFileStore for user ID {user_id}"
 
-    return {"bucket_structure": bucket_structure, "file_metadata": file_metadata}
+    return {"message": f"UserFileStore updated for user ID {user_id}", "ok": True}
 
 
-async def add_file_to_bucketstore(user_id: uuid.UUID, file_path: str, file: UploadFile, session: AsyncSession) -> dict[str, str | bool]:
+async def add_file_to_bucketstore(
+    user_id: uuid.UUID,
+    file_path: str,
+    file: UploadFile,
+    session: AsyncSession
+) -> dict[str, str | bool]:
     bucket_name: str = f"user-{user_id}-bucket"
     parsed_file_path: str = f"""{file_path.strip("/")}/{file.filename}"""
     storage_key: str = f"home/{parsed_file_path}".replace("//", "/").lower()
@@ -112,78 +126,42 @@ async def add_file_to_bucketstore(user_id: uuid.UUID, file_path: str, file: Uplo
 
     storage_key = upload_file["uploaded_file"]["object_name"]
 
-    result = await session.execute(
-        select(UserFile).where(
-            UserFile.user_id == user_id,
-            UserFile.storage_key == storage_key,
-        )
+    user_file = await get_user_file(storage_key=storage_key, user_id=user_id, session=session)
+
+    if user_file:
+        await delete_user_file(file_id=user_file.file_id, session=session)
+
+    file_name: str = str(file.filename).lower().strip()
+    mime_type: str | None = file.content_type if file.content_type else None
+
+    new_user_file_data: UserFileCreate = UserFileCreate(
+        user_id=user_id,
+        original_filename=file_name,
+        storage_key=storage_key,
+        mime_type=mime_type,
+        file_size_bytes=file.size,
+        status="uploaded",
+        uploaded_at=datetime.now()
     )
-    user_file: UserFile | None = result.scalar_one_or_none()
 
-    if user_file is not None:
-        return {
-            "message": f"File '{file.filename}' already exists.",
-            "ok": False,
-        }
-    else:
-        file_name: str = str(file.filename).lower()
-        mime_type: str | None = file.content_type if file.content_type else None
-
-        insert_stmt = (
-            insert(UserFile)
-            .values(
-                user_id=user_id,
-                original_filename=file_name,
-                storage_key=storage_key,
-                mime_type=mime_type,
-                file_size_bytes=file.size,
-                status="uploaded",
-            )
-            .returning(UserFile)
-        )
-
-        user_file = (await session.execute(insert_stmt)).scalar_one()
-        await session.commit()
-
-    get_user_bucketstore_status = await get_user_bucketstore(user_id=user_id, session=session)
-    if "message" in get_user_bucketstore_status and "No UserFileStore found" in get_user_bucketstore_status["message"]:
-        create_user_bucketstore_status = await create_user_bucketstore(user_id=user_id, bucket_name=bucket_name, session=session)
-        assert create_user_bucketstore_status["ok"], f"Failed to sync UserFileStore after file upload: {create_user_bucketstore_status}"
+    new_user_file = await create_user_file(new_user_file = new_user_file_data, session=session)
+    assert new_user_file is not None, f"Failed to create UserFile for storage key '{storage_key}' and user ID {user_id}"
 
     sync_user_bucketstore_status = await sync_user_bucketstore(user_id=user_id, session=session)
     assert sync_user_bucketstore_status["ok"], f"Failed to sync UserFileStore after file upload: {sync_user_bucketstore_status}"
 
     new_file_job = FileJobCreate(
-        file_id=user_file.file_id,
+        file_id=new_user_file.file_id,
         job_type="ingest",
         max_attempts=3,
     )
 
-    new_file_job = await create_file_job(
-        user_id=str(user_id),
-        file_job=new_file_job,
-        session=session,
-    )
-    assert new_file_job is not None, f"Failed to create file job for file ID {user_file.file_id} and user ID {user_id}"
-
-    newely_enqueued_task = None
-
-    try:
-        newely_enqueued_task = await enqueue_file_ingestion_task(
-            file_id=user_file.file_id,
-            storage_key=storage_key,
-            user_id=uuid.UUID(user_id),
-            file_job_id=new_file_job.job_id if new_file_job else None,
-        )
-    except Exception as exc:
-        print(f"Failed to enqueue file ingestion task for file ID {user_file.file_id} and user ID {user_id}: {exc}", flush=True)
-
-    if newely_enqueued_task is None:
-        return {"message": f"Failed to enqueue file ingestion task for file ID {user_file.file_id} and user ID {user_id}", "ok": False}
+    new_file_job = await create_file_job(user_id=user_id, file_job=new_file_job, session=session)
+    assert new_file_job and new_file_job.job_id is not None, f"Failed to create file job for file ID {new_user_file.file_id} and user ID {user_id}"
+    newely_enqueued_task = await enqueue_file_ingestion_task(file_job_ids=[new_file_job.job_id],)
 
     queued_at = datetime.now()
     updated_file_job = await update_file_job(
-        user_id=user_id,
         job_id=new_file_job.job_id,
         file_job_update=FileJobUpdate(
             status="queued",
@@ -204,15 +182,34 @@ async def add_file_to_bucketstore(user_id: uuid.UUID, file_path: str, file: Uplo
     }
 
 
+async def get_user_bucketstore_structure(user_id: uuid.UUID, session: AsyncSession) -> dict[str, Any]:
+    user_bucketstore = await get_user_bucketstore(user_id=user_id, session=session)
+    assert user_bucketstore is not None, f"No UserFileStore found for user ID {user_id}"
+    bucket_structure = user_bucketstore.bucket_structure # type: ignore
+
+    user_files = await list_user_files(user_id=user_id, session=session)
+
+    file_metadata: dict[str, dict[str, Any]] = {
+        f"/{user_file.storage_key.removeprefix('home/').lstrip('/')}": {
+            "created_at": user_file.created_at.isoformat(),
+            "updated_at": user_file.updated_at.isoformat(),
+            "uploaded_at": user_file.uploaded_at.isoformat(),
+            "file_size_bytes": user_file.file_size_bytes,
+            "status": user_file.status,
+        }
+        for user_file in user_files
+    }
+
+    return {"bucket_structure": bucket_structure, "file_metadata": file_metadata}
+
+
 async def download_file_from_bucketstore(user_id: str, file_path: str, session: AsyncSession) -> dict[str, Any]:
     print(f"Downloading file '{file_path}' for user ID {user_id} from bucketstore")
 
     return {"ok": True}
 
 
-async def delete_file_from_bucketstore(user_id: str, file_path: str, session: AsyncSession) -> dict[str, Any]:
-    print(f"Deleting file '{file_path}' for user ID {user_id} from bucketstore")
-
+async def delete_file_from_bucketstore(user_id: uuid.UUID, file_path: str, session: AsyncSession) -> dict[str, Any]:
     storage_key = f"home/{file_path.strip('/')}".replace("//", "/")
     delete_file_from_minio_status = await delete_path_from_minio(
         bucket_name=f"user-{user_id}-bucket",
@@ -220,16 +217,7 @@ async def delete_file_from_bucketstore(user_id: str, file_path: str, session: As
     )
     assert delete_file_from_minio_status["ok"], f"Failed to delete file from MinIO: {delete_file_from_minio_status}"
 
-    select_stmt = select(UserFile).where(UserFile.user_id == user_id, UserFile.storage_key == storage_key)
-    result = await session.execute(select_stmt)
-    user_file: UserFile | None = result.scalar_one_or_none()
-
-    if user_file is None:
-        return {"message": f"No UserFile found for user ID {user_id} and file path '{storage_key}'", "ok": False}
-
-    stmt = delete(UserFile).where(UserFile.id == user_file.id)
-    await session.execute(stmt)
-    await session.commit()
+    await delete_user_file(user_id=user_id, storage_key=storage_key, session=session)
 
     return {"ok": True}
 

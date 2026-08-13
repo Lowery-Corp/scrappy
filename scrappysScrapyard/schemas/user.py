@@ -2,12 +2,12 @@ import uuid
 from pydantic import BaseModel, EmailStr, field_validator
 
 class UserCreate(BaseModel):
-    email: EmailStr
+    username: EmailStr
     password: str
 
-    @field_validator("email", mode="before")
-    def normalize_email(cls, email: EmailStr) -> str:
-        return email.strip().lower()
+    @field_validator("username", mode="before")
+    def normalize_email(cls, username: EmailStr) -> str:
+        return username.strip().lower()
 
     @field_validator("password", mode="before")
     def validate_password(cls, password: str) -> str:

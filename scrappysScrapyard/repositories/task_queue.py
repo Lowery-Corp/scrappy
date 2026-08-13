@@ -29,7 +29,7 @@ def enqueue_task(
     kwargs: dict[str, Any] | None = None,
     queue_name: str | None = None,
     task_id: str | None = None,
-) -> QueuedTask:
+) -> QueuedTask | None:
     try:
         result: AsyncResult = celery_app.send_task( # type: ignore
             task_name,
@@ -37,11 +37,9 @@ def enqueue_task(
             queue=queue_name,
             task_id=task_id,
         )
-        print(f"Enqueued task {task_name} with ID {result.id} to queue {queue_name}", flush=True) # type: ignore
     except OperationalError as exc:
         raise TaskQueueError("Could not publish task to Celery broker") from exc
 
-    print(f"Task {task_name} enqueued with ID {result.id} to queue {queue_name}", flush=True) # type: ignore
 
     return QueuedTask(
         celery_task_id=result.id,
@@ -52,24 +50,20 @@ def enqueue_task(
 
 async def enqueue_file_ingestion_task(
     *,
-    file_id: uuid.UUID,
-    storage_key: str,
-    user_id: uuid.UUID,
-    file_job_id: uuid.UUID | None = None,
+    file_job_ids: list[uuid.UUID],
     queue_name: str = DEFAULT_FILE_INGESTION_QUEUE,
 ) -> QueuedTask:
-    print(f"Enqueuing file ingestion task for file_id={file_id}, storage_key={storage_key}, user_id={user_id}, file_job_id={file_job_id}, queue_name={queue_name}", flush=True)
-    payload: dict[str, str] = {
-        "file_id": str(file_id),
-        "storage_key": storage_key,
-        "user_id": str(user_id),
+    payload: dict[str, list[uuid.UUID]] = {
+        "file_job_ids": file_job_ids,
     }
 
-    if file_job_id is not None:
-        payload["file_job_id"] = str(file_job_id)
-
-    return enqueue_task(
+    new_task = enqueue_task(
         FILE_INGESTION_TASK,
         kwargs=payload,
         queue_name=queue_name,
     )
+
+    if new_task is None:
+        raise TaskQueueError("Failed to enqueue file ingestion task")
+
+    return new_task

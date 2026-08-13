@@ -1,6 +1,5 @@
 import uuid
-
-from fastapi import APIRouter, Response, Request, Depends, Cookie
+from fastapi import APIRouter, Response, Request, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
