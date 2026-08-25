@@ -10,7 +10,6 @@ from repositories.file_job import (
     list_file_jobs,
     increment_attempt_count,
     update_file_job,
-    delete_file_job,
 )
 from schemas.file_job import FileJobCreate, FileJobRead, FileJobUpdate, FileJobListRead
 from schemas.user import AuthorizedUser
@@ -118,23 +117,3 @@ async def increment_attempt_count_route(
     updated_file_job_read = FileJobRead.model_validate(updated_file_job)
 
     return updated_file_job_read
-
-
-# @router.delete("/{job_id}", response_model=dict[str, bool], dependencies=[Depends(require_admin_user)])
-# async def delete_file_job_route(
-#     job_id: uuid.UUID,
-#     session: AsyncSession = Depends(get_session),
-# ) -> dict[str, bool]:
-
-#     deleted = await delete_file_job(
-#         job_id=job_id,
-#         session=session,
-#     )
-
-#     if not deleted:
-#         raise HTTPException(
-#             status_code=status.HTTP_404_NOT_FOUND,
-#             detail="File job not found",
-#         )
-
-#     return {"ok": True}

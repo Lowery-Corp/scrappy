@@ -42,7 +42,6 @@ async def get_user_files(
     results = await session.scalars(stmt)
 
     file_data = [user_file for user_file in results.all()]
-    print(file_data, flush=True)
 
     return file_data
 

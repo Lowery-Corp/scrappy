@@ -7,7 +7,7 @@ from db.dependencies import get_session
 from repositories.file_chunk import (
     create_file_chunk,
     delete_file_chunk,
-    get_file_chunk,
+    get_file_chunks,
     list_file_chunks,
     update_file_chunk,
 )
@@ -59,13 +59,16 @@ async def list_file_chunks_route(
 
 
 @router.get("/{file_chunk_id}", response_model=FileChunkRead, dependencies=[Depends(require_admin_user)])
+@router.get("/{file_id}/{file_chunk_id}", response_model=FileChunkRead, dependencies=[Depends(require_admin_user)])
 async def get_file_chunk_route(
     file_chunk_id: int,
+    file_id: uuid.UUID | None = None,
     session: AsyncSession = Depends(get_session),
-) -> FileChunkRead:
+) -> list[FileChunkRead]:
 
-    file_chunk = await get_file_chunk(
+    file_chunk = await get_file_chunks(
         file_chunk_id=file_chunk_id,
+        file_id=file_id,
         session=session,
     )
 
@@ -114,10 +117,4 @@ async def delete_file_chunk_route(
         session=session,
     )
 
-    if not deleted:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="File chunk not found",
-        )
-
-    return {"ok": True}
+    return {"ok": deleted}

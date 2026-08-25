@@ -61,13 +61,13 @@ async def list_file_chunks(
     return [FileChunkRead.model_validate(file_chunk) for file_chunk in result]
 
 
-async def get_file_chunk(
+async def get_file_chunks(
     session: AsyncSession,
     limit: int = 6,
     file_chunk_id: int | None = None,
     file_id: uuid.UUID | None = None,
     embedding: list[float] | None = None,
-) -> FileChunkRead | None:
+) -> list[FileChunkRead] | None:
     stmt = select(FileChunk)
 
     if file_chunk_id is not None:
@@ -81,43 +81,48 @@ async def get_file_chunk(
     if file_id is not None:
         stmt = stmt.where(FileChunk.file_id == file_id)
 
-    result = await session.scalar(stmt)
+    result = await session.scalars(stmt)
 
-    file_chunk_context = FileChunkRead.model_validate(result) if result else None
+    file_chunks = [FileChunkRead.model_validate(file_chunk) for file_chunk in result]
+    return file_chunks
 
-    return file_chunk_context
 
 
 async def update_file_chunk(
     file_chunk_id: int,
     file_chunk_update: FileChunkUpdate,
     session: AsyncSession,
-) -> FileChunk | None:
-    existing_file_chunk = await get_file_chunk(
+) -> list[FileChunk] | None:
+    existing_file_chunks = await get_file_chunks(
         file_chunk_id=file_chunk_id,
         session=session,
     )
 
-    if existing_file_chunk is None:
+    if existing_file_chunks is None:
         return None
 
     update_values = file_chunk_update.model_dump(exclude_unset=True)
     if not update_values:
-        return existing_file_chunk
+        return None
 
+    updated_file_chunks: list[FileChunk] = []
     try:
-        updated_file_chunk = await session.scalar(
-            update(FileChunk)
-            .where(FileChunk.id == existing_file_chunk.id)
-            .values(**update_values)
-            .returning(FileChunk)
-        )
+        for chunk in existing_file_chunks:
+            updated_file_chunk = await session.scalar(
+                update(FileChunk)
+                .where(FileChunk.id == chunk.id)
+                .values(**update_values)
+                .returning(FileChunk)
+            )
+            if updated_file_chunk is not None:
+                updated_file_chunks.append(updated_file_chunk)
+
         await session.commit()
     except IntegrityError:
         await session.rollback()
         return None
 
-    return updated_file_chunk
+    return updated_file_chunks
 
 
 async def delete_file_chunk(
@@ -125,13 +130,13 @@ async def delete_file_chunk(
     file_id: uuid.UUID | None = None,
     file_chunk_id: int | None = None,
 ) -> bool:
-    existing_file_chunks = await get_file_chunk(
+    existing_file_chunks = await get_file_chunks(
         file_id=file_id,
         file_chunk_id=file_chunk_id,
         session=session,
     )
     if existing_file_chunks is None:
-        return False
+        return True
 
     stmt = delete(FileChunk)
 
@@ -140,6 +145,7 @@ async def delete_file_chunk(
     if file_id is not None:
         stmt = stmt.where(FileChunk.file_id == file_id)
 
+    await session.execute(stmt)
     await session.commit()
 
     return True
