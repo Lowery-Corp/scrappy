@@ -1,152 +1,81 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from auth.dependencies import get_current_user, require_admin_user
+from auth.dependencies import require_admin_user
 from db.dependencies import get_session
 from repositories.user_file import (
-    create_user_file,
-    delete_user_file,
-    get_user_file,
-    get_user_file_by_file_id,
-    list_user_files,
+    get_user_files,
     update_user_file,
+    delete_user_file,
 )
-from schemas.user import AuthorizedUser
-from schemas.user_file import UserFileCreate, UserFileRead, UserFileUpdate
+from schemas.user_file import UserFileRead, UserFileUpdate, ReadUserFiles
 
 router = APIRouter(tags=["user_files"])
 
 
-@router.post("", response_model=UserFileRead, status_code=status.HTTP_201_CREATED)
-async def create_user_file_route(
-    user_file: UserFileCreate,
-    current_user: AuthorizedUser = Depends(get_current_user),
-    session: AsyncSession = Depends(get_session),
-) -> UserFileRead:
-    require_admin_user(current_user)
-
-    created_user_file = await create_user_file(
-        user_file=user_file,
-        session=session,
-    )
-
-    if created_user_file is None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="User file already exists or violates a database constraint",
-        )
-
-    return created_user_file
-
-
-@router.get("", response_model=list[UserFileRead])
-async def list_user_files_route(
-    user_id: uuid.UUID | None = None,
-    file_status: str | None = Query(default=None, alias="status"),
-    storage_key: str | None = None,
-    limit: int = Query(default=50, ge=1, le=100),
-    offset: int = Query(default=0, ge=0),
-    current_user: AuthorizedUser = Depends(get_current_user),
-    session: AsyncSession = Depends(get_session),
-) -> list[UserFileRead]:
-    if not current_user.is_admin:
-        user_id = uuid.UUID(current_user.id)
-    else:
-        require_admin_user(current_user)
-
-
-    user_files = await list_user_files(
-        session=session,
-        user_id=user_id,
-        status=file_status,
-        storage_key=storage_key,
-        limit=limit,
-        offset=offset,
-    )
-
-    return user_files
-
-
-@router.get("/file-id/{file_id}", response_model=UserFileRead)
-async def get_user_file_by_file_id_route(
-    file_id: uuid.UUID,
-    current_user: AuthorizedUser = Depends(get_current_user),
-    session: AsyncSession = Depends(get_session),
-) -> UserFileRead:
-    require_admin_user(current_user)
-
-    user_file = await get_user_file_by_file_id(
-        file_id=file_id,
-        session=session,
-    )
-
-    if user_file is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User file not found",
-        )
-
-    return user_file
-
-
-@router.get("/{user_file_id}", response_model=UserFileRead)
+# ####################### Data Processing Endpoints #######################
+@router.get("", response_model=list[ReadUserFiles], dependencies=[Depends(require_admin_user)])
+@router.get("/{file_id}", response_model=ReadUserFiles, dependencies=[Depends(require_admin_user)])
+@router.get("/user/{user_id}", response_model=ReadUserFiles, dependencies=[Depends(require_admin_user)])
 async def get_user_file_route(
-    user_file_id: int,
-    current_user: AuthorizedUser = Depends(get_current_user),
+    user_id: uuid.UUID | None = None,
+    file_id: uuid.UUID | None= None,
     session: AsyncSession = Depends(get_session),
-) -> UserFileRead:
-    require_admin_user(current_user)
+) -> ReadUserFiles:
 
-    user_file = await get_user_file(
-        user_file_id=user_file_id,
+    files = await get_user_files(
+        file_id=file_id,
+        user_id=user_id,
         session=session,
     )
 
-    if user_file is None:
+    if files is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User file not found",
         )
 
-    return user_file
+    return_files: ReadUserFiles = ReadUserFiles(files=[])
+    if files:
+        return_files.files = files
+
+    return return_files
 
 
-@router.patch("/{user_file_id}", response_model=UserFileRead)
+@router.patch("/{file_id}", response_model=UserFileRead, dependencies=[Depends(require_admin_user)])
 async def update_user_file_route(
-    user_file_id: uuid.UUID,
-    user_file_update: UserFileUpdate,
-    current_user: AuthorizedUser = Depends(get_current_user),
+    file_id: uuid.UUID,
+    file_update: UserFileUpdate,
     session: AsyncSession = Depends(get_session),
 ) -> UserFileRead:
-    require_admin_user(current_user)
 
-    updated_user_file = await update_user_file(
-        user_file_id=user_file_id,
-        user_file_update=user_file_update,
+    updated_file = await update_user_file(
+        file_id=file_id,
+        file_update=file_update,
         session=session,
     )
 
-    if updated_user_file is None:
+    if updated_file is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User file not found or update violates a database constraint",
         )
 
-    return updated_user_file
+    return_user_file = UserFileRead.model_validate(updated_file)
+
+    return return_user_file
 
 
-@router.delete("/{user_file_id}")
+@router.delete("/{file_id}", dependencies=[Depends(require_admin_user)])
 async def delete_user_file_route(
-    user_file_id: int,
-    current_user: AuthorizedUser = Depends(get_current_user),
+    file_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, bool]:
-    require_admin_user(current_user)
 
     deleted = await delete_user_file(
-        user_file_id=user_file_id,
+        file_id=file_id,
         session=session,
     )
 

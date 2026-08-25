@@ -1,6 +1,7 @@
 from sqlalchemy import delete, insert, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+import uuid
 
 from models.file_chunk import FileChunk
 from schemas.file_chunk import FileChunkCreate, FileChunkRead, FileChunkUpdate
@@ -64,11 +65,10 @@ async def get_file_chunk(
     session: AsyncSession,
     limit: int = 6,
     file_chunk_id: int | None = None,
+    file_id: uuid.UUID | None = None,
     embedding: list[float] | None = None,
 ) -> FileChunkRead | None:
     stmt = select(FileChunk)
-
-    assert file_chunk_id is not None or embedding is not None, "Either file_chunk_id or embedding must be provided."
 
     if file_chunk_id is not None:
         stmt = stmt.where(FileChunk.id == file_chunk_id)
@@ -78,6 +78,8 @@ async def get_file_chunk(
             .order_by(FileChunk.embedding.cosine_distance(embedding))
             .limit(limit)
         )
+    if file_id is not None:
+        stmt = stmt.where(FileChunk.file_id == file_id)
 
     result = await session.scalar(stmt)
 
@@ -119,18 +121,25 @@ async def update_file_chunk(
 
 
 async def delete_file_chunk(
-    file_chunk_id: int,
     session: AsyncSession,
+    file_id: uuid.UUID | None = None,
+    file_chunk_id: int | None = None,
 ) -> bool:
-    existing_file_chunk = await get_file_chunk(
+    existing_file_chunks = await get_file_chunk(
+        file_id=file_id,
         file_chunk_id=file_chunk_id,
         session=session,
     )
-
-    if existing_file_chunk is None:
+    if existing_file_chunks is None:
         return False
 
-    await session.execute(delete(FileChunk).where(FileChunk.id == existing_file_chunk.id))
+    stmt = delete(FileChunk)
+
+    if file_chunk_id is not None:
+        stmt = stmt.where(FileChunk.id == file_chunk_id)
+    if file_id is not None:
+        stmt = stmt.where(FileChunk.file_id == file_id)
+
     await session.commit()
 
     return True

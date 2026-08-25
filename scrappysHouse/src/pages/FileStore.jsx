@@ -88,7 +88,6 @@ export default function FileStore() {
       setIsLoading(true);
 
       const response = await getBucketStructure();
-      console.log(response);
 
       const structure = response?.bucket_structure ?? response ?? {};
       const fileMetadata = response?.file_metadata ?? {};

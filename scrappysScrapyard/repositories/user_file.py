@@ -5,7 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.user_file import UserFile
-from schemas.user_file import UserFileCreate, UserFileRead, UserFileUpdate
+from schemas.user_file import UserFileCreate, UserFileUpdate
 
 
 async def create_user_file(
@@ -18,36 +18,13 @@ async def create_user_file(
     return user_file
 
 
-async def list_user_files(
-    session: AsyncSession,
-    user_id: uuid.UUID | None = None,
-    status: str | None = None,
-    storage_key: str | None = None,
-    limit: int = 50,
-    offset: int = 0,
-) -> list[UserFile]:
-    stmt = select(UserFile)
-
-    if user_id is not None:
-        stmt = stmt.where(UserFile.user_id == user_id)
-    if status is not None:
-        stmt = stmt.where(UserFile.status == status)
-    if storage_key is not None:
-        stmt = stmt.where(UserFile.storage_key == storage_key)
-
-    stmt = stmt.order_by(UserFile.created_at.desc()).limit(limit).offset(offset)
-
-    result = await session.scalars(stmt)
-
-    return [user_file for user_file in result]
-
-
-async def get_user_file(
+async def get_user_files(
     session: AsyncSession,
     file_id: uuid.UUID | None = None,
     user_id: uuid.UUID | None = None,
+    status: str | None = None,
     storage_key: str | None = None,
-) -> UserFile | None:
+) -> list[UserFile] | None:
     stmt = select(UserFile)
 
     if not file_id and not user_id and not storage_key:
@@ -59,33 +36,32 @@ async def get_user_file(
         stmt = stmt.where(UserFile.user_id == user_id)
     if storage_key is not None:
         stmt = stmt.where(UserFile.storage_key == storage_key)
+    if status is not None:
+        stmt = stmt.where(UserFile.status == status)
 
-    return await session.scalar(stmt)
+    results = await session.scalars(stmt)
 
+    file_data = [user_file for user_file in results.all()]
+    print(file_data, flush=True)
 
-async def get_user_file_by_file_id(
-    file_id: uuid.UUID,
-    session: AsyncSession,
-) -> UserFile | None:
-    return await session.scalar(
-        select(UserFile).where(UserFile.file_id == file_id)
-    )
+    return file_data
 
 
 async def update_user_file(
-    user_file_id: uuid.UUID,
-    user_file_update: UserFileUpdate,
+    file_id: uuid.UUID,
+    file_update: UserFileUpdate,
     session: AsyncSession,
 ) -> UserFile | None:
-    existing_user_file = await get_user_file(
-        user_file_id=user_file_id,
+    existing_user_file = await get_user_files(
+        file_id=file_id,
         session=session,
     )
+    existing_user_file = existing_user_file[0] if existing_user_file else None
 
     if existing_user_file is None:
         return None
 
-    update_values = user_file_update.model_dump(exclude_unset=True)
+    update_values = file_update.model_dump(exclude_unset=True)
     if not update_values:
         return existing_user_file
 
@@ -110,12 +86,13 @@ async def delete_user_file(
     storage_key: str | None = None,
     user_id: uuid.UUID | None = None,
 ) -> None:
-    existing_user_file = await get_user_file(
+    existing_user_file = await get_user_files(
         file_id=file_id,
         storage_key=storage_key,
         session=session,
         user_id=user_id
     )
+    existing_user_file = existing_user_file[0] if existing_user_file else None
 
     if existing_user_file:
         stmt = delete(UserFile)

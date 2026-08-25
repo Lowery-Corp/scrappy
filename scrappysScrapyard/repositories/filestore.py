@@ -11,7 +11,7 @@ from schemas.file_job import FileJobCreate, FileJobUpdate
 from schemas.user_file import UserFileCreate
 from repositories.minio import create_bucket, get_bucket_structure, upload_file_to_minio, delete_path_from_minio
 from repositories.file_job import create_file_job, update_file_job
-from repositories.user_file import get_user_file, delete_user_file, create_user_file, list_user_files
+from repositories.user_file import get_user_files, delete_user_file, create_user_file
 from repositories.task_queue import enqueue_file_ingestion_task
 
 
@@ -126,7 +126,8 @@ async def add_file_to_bucketstore(
 
     storage_key = upload_file["uploaded_file"]["object_name"]
 
-    user_file = await get_user_file(storage_key=storage_key, user_id=user_id, session=session)
+    user_files = await get_user_files(storage_key=storage_key, user_id=user_id, session=session)
+    user_file = user_files[0] if user_files else None
 
     if user_file:
         await delete_user_file(file_id=user_file.file_id, session=session)
@@ -172,10 +173,7 @@ async def add_file_to_bucketstore(
         ),
         session=session,
     )
-    if updated_file_job is None:
-        return {"message": f"Failed to update file job status to 'queued' for file ID {user_file.file_id} and user ID {user_id}", "ok": False}
 
-    # TODO: Return bucket structure with new file added
     return {
         "ok": True,
         "message": f"File '{storage_key}' added to UserFileStore for user ID {user_id}",
@@ -187,7 +185,9 @@ async def get_user_bucketstore_structure(user_id: uuid.UUID, session: AsyncSessi
     assert user_bucketstore is not None, f"No UserFileStore found for user ID {user_id}"
     bucket_structure = user_bucketstore.bucket_structure # type: ignore
 
-    user_files = await list_user_files(user_id=user_id, session=session)
+    user_files = await get_user_files(user_id=user_id, session=session)
+    if user_files is None:
+        return {"bucket_structure": bucket_structure, "file_metadata": {}}
 
     file_metadata: dict[str, dict[str, Any]] = {
         f"/{user_file.storage_key.removeprefix('home/').lstrip('/')}": {

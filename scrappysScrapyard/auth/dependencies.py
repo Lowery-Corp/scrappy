@@ -6,9 +6,7 @@ from schemas.user import AuthorizedUser
 
 def require_admin_user(request: Request) -> None:
     request_auth_key = request.headers.get("api-key")
-    print(request.headers, flush=True)
     if request_auth_key != settings.scrappys_api_key:
-        print(request_auth_key, "==", settings.scrappys_api_key, flush=True)
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Forbidden",

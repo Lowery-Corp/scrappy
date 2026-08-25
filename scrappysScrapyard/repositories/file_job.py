@@ -1,5 +1,5 @@
 import uuid
-
+from datetime import datetime
 from sqlalchemy import delete, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -35,6 +35,32 @@ async def create_file_job(
     await session.commit()
 
     return created_file_job
+
+
+async def list_file_jobs(
+    session: AsyncSession,
+    status: list[str] | None = None,
+    job_type: str | None = None,
+    created_at: float | None = None,
+    limit: int = 50,
+    offset: int = 0,
+)-> list[str]:
+    stmt = select(FileJob.job_id)
+
+    if status:
+        stmt = stmt.where(FileJob.status.in_(status))
+    if job_type:
+        stmt = stmt.where(FileJob.job_type == job_type)
+    if created_at:
+        created_at_dt = datetime.fromtimestamp(created_at)
+        stmt = stmt.where(FileJob.created_at >= created_at_dt)
+    stmt = stmt.where(FileJob.attempt_count < FileJob.max_attempts)
+    stmt = stmt.order_by(FileJob.created_at.desc()).limit(limit).offset(offset)
+
+    result = await session.execute(stmt)
+    file_jobs = result.scalars().all()
+
+    return [str(job_id) for job_id in file_jobs]
 
 
 async def get_file_job(
@@ -76,6 +102,32 @@ async def update_file_job(
 
     if not updated_file_job:
         raise ValueError(f"Failed to update file job with ID {job_id}")
+
+    return updated_file_job
+
+
+async def increment_attempt_count(
+    job_id: uuid.UUID,
+    session: AsyncSession,
+) -> FileJob:
+    existing_file_job = await get_file_job(
+        job_id=job_id,
+        session=session,
+    )
+
+    if existing_file_job is None:
+        raise ValueError(f"File job with ID {job_id} not found")
+
+    updated_file_job = await session.scalar(
+        update(FileJob)
+        .where(FileJob.file_id == existing_file_job.file_id)
+        .values(attempt_count=existing_file_job.attempt_count + 1)
+        .returning(FileJob)
+    )
+    await session.commit()
+
+    if not updated_file_job:
+        raise ValueError(f"Failed to increment attempt count for file job with ID {job_id}")
 
     return updated_file_job
 
