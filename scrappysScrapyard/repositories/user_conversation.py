@@ -106,7 +106,7 @@ async def create_user_conversation(
 
 
 async def list_user_conversations(
-    user_id: uuid.UUID,
+    user_id: str,
     session: AsyncSession,
     limit: int = 50,
     offset: int = 0,

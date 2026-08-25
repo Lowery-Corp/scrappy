@@ -169,7 +169,7 @@ async def list_user_conversations_route(
     session: AsyncSession = Depends(get_session),
 ) -> list[UserConversationRead]:
     return await list_user_conversations(
-        user_id=uuid.UUID(current_user.id),
+        user_id=str(current_user.id),
         session=session,
         limit=limit,
         offset=offset,
