@@ -299,7 +299,7 @@ async def create_conversation_message_stream_route(
     current_user: AuthorizedUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> StreamingResponse:
-    user_id = uuid.UUID(current_user.id)
+    user_id = current_user.id
     created_conversation_message = await create_conversation_message(
         user_id=user_id,
         conversation_id=conversation_id,
@@ -334,8 +334,10 @@ async def list_conversation_messages_route(
     current_user: AuthorizedUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> list[ConversationMessageRead]:
+
+    print(current_user)
     return await list_conversation_messages(
-        user_id=uuid.UUID(current_user.id),
+        user_id=current_user.id,
         conversation_id=conversation_id,
         session=session,
     )

@@ -70,7 +70,6 @@ async def create_user_conversation(
     user_conversation: UserConversationCreate,
     session: AsyncSession,
 ) -> UserConversationRead | None:
-
     new_user_conversation: dict[str, str | uuid.UUID | list[uuid.UUID] | None] = {
         "user_id": user_id,
         "conversation_name": _conversation_name_from_message(
