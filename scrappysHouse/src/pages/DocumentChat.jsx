@@ -9,7 +9,7 @@ import {
   deleteConversations,
   sendMessageStream,
 } from "../services/user_conversations";
-import { getUserFiles } from "../services/blob";
+import { getUserFiles } from "../services/user_files";
 import ChatComposer from "../components/documentChat/ChatComposer";
 import ChatPanelHeader from "../components/documentChat/ChatPanelHeader";
 import ChatSidebar from "../components/documentChat/ChatSidebar";
@@ -159,7 +159,7 @@ export default function DocumentChat() {
 
     const loadChatPageData = async () => {
       try {
-        const [conversations, files] = await Promise.all([
+        const [conversations, user_file_data] = await Promise.all([
           getUserConversations(),
           getUserFiles(),
         ]);
@@ -175,7 +175,8 @@ export default function DocumentChat() {
         setUserChats((previousChats) =>
           mergeConversationPreviews(safeConversations, previousChats),
         );
-        setUserFiles(Array.isArray(files) ? files : []);
+        const userFiles = user_file_data.files
+        setUserFiles(Array.isArray(userFiles) ? userFiles : []);
 
         if (conversationId && conversationId !== "new") {
           if (streamingConversationId.current === conversationId) {
