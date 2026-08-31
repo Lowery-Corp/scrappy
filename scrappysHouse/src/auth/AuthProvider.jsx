@@ -2,6 +2,9 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { useLocation, useNavigate } from "react-router";
 import { SESSION_EXPIRED_EVENT, api, notifySessionExpired } from "../services/api";
 
+import { loginUser, registerUser, logoutUser } from "../services/AuthService";
+import { getCurrentUser } from "../services/User";
+
 const AuthContext = createContext(null);
 
 const SESSION_EXPIRATION_IGNORED_PATHS = [
@@ -33,18 +36,12 @@ export function AuthProvider({ children }) {
     try {
       setAuthError(null);
 
-      const body = { username, password };
-      const response = await api.post("/api/v1/auth/login", body);
-      console.log("Login response:", response.data);
+      const user_data = await loginUser( username, password);
+      console.log("Login successful:", user_data);
 
-      if (response.data?.user) {
-        setUser(response.data.user);
-        return { ok: true };
-      }
-
-      const meResponse = await api.get("/api/v1/auth/me");
-      if (meResponse.data?.username) {
-        setUser(meResponse.data.username);
+      if (user_data.username) {
+        setUser(user_data.username);
+        navigate("/about")
         return { ok: true };
       }
 
@@ -69,7 +66,7 @@ export function AuthProvider({ children }) {
 
   const logout = async () => {
     try {
-      await api.post("/api/v1/auth/logout");
+      await logoutUser();
     } catch {
       // ignore logout API errors and still clear local user state
     } finally {
@@ -82,12 +79,9 @@ export function AuthProvider({ children }) {
     try {
       setAuthError(null);
 
-      const response = await api.post("/api/v1/auth/register", {
-        email: username,
-        password,
-      });
+      const response = await registerUser(username, password);
 
-      if (response.data?.ok === true) {
+      if (response.ok === true) {
         const loginResult = await login({ username, password });
 
         if (!loginResult.ok) {
@@ -164,9 +158,9 @@ export function AuthProvider({ children }) {
       try {
         setAuthError(null);
 
-        const response = await api.get("/api/v1/auth/me");
-        if (response.data?.user) {
-          setUser(response.data.user);
+        const response = await getCurrentUser();
+        if (response.username) {
+          setUser(response.username);
         } else {
           setUser(null);
         }
