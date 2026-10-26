@@ -26,8 +26,8 @@ jobs:
       - name: Build and push scrappys-house image
         uses: docker/build-push-action@v6
         with:
-          context: ./scrappysHouse
-          file: ./scrappysHouse/Dockerfile
+          context: ./frontend
+          file: ./frontend/Dockerfile
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/scrappys-house:latest
@@ -36,8 +36,8 @@ jobs:
       - name: Build and push scrappys-scrapyard image
         uses: docker/build-push-action@v6
         with:
-          context: ./scrappysScrapyard
-          file: ./scrappysScrapyard/Dockerfile
+          context: ./backend
+          file: ./backend/Dockerfile
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/scrappys-scrapyard:latest

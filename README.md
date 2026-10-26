@@ -44,12 +44,12 @@ Scrappy is a full-stack document workspace for uploading user files, tracking th
 
 The repository is split into two application services plus supporting infrastructure:
 
-- **scrappysHouse** - React frontend built with Vite, React Router, Tailwind CSS, and Axios.
-- **scrappysScrapyard** - FastAPI backend using SQLAlchemy, PostgreSQL, Redis, MinIO-compatible object storage, and Alembic migrations.
+- **frontend** - React frontend built with Vite, React Router, Tailwind CSS, and Axios.
+- **backend** - FastAPI backend using SQLAlchemy, PostgreSQL, Redis, MinIO-compatible object storage, and Alembic migrations.
 
 ## Features
 
-### Frontend (`scrappysHouse`)
+### Frontend (`frontend`)
 - React 19 UI with route-based pages.
 - Protected routes for authenticated views.
 - Role-aware admin navigation.
@@ -60,7 +60,7 @@ The repository is split into two application services plus supporting infrastruc
 - Chat file selector limited to ready PDF files.
 - Responsive styling with Tailwind CSS and dark-mode classes.
 
-### Backend (`scrappysScrapyard`)
+### Backend (`backend`)
 - FastAPI async API service.
 - SQLAlchemy ORM models and repositories.
 - PostgreSQL persistence through AsyncPG.
@@ -118,13 +118,13 @@ POSTGRES_MAIN_PASSWORD=postgres
 POSTGRES_MAIN_DB=postgres
 ```
 
-Create `scrappysHouse/.env` and point the frontend at the backend:
+Create `frontend/.env` and point the frontend at the backend:
 
 ```bash
 VITE_SCRAPPYS_SCRAPYARD_URL=http://localhost:8000
 ```
 
-Create `scrappysScrapyard/.env` with backend settings. Important variables include:
+Create `backend/.env` with backend settings. Important variables include:
 
 ```bash
 database_url=postgresql+asyncpg://...
@@ -162,7 +162,7 @@ docker-compose down
 ### Local Backend Development
 
 ```bash
-cd scrappysScrapyard
+cd backend
 pip install -r requirements.txt
 alembic upgrade head
 python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
@@ -171,7 +171,7 @@ python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ### Local Frontend Development
 
 ```bash
-cd scrappysHouse
+cd frontend
 npm install
 npm run dev
 ```
@@ -179,7 +179,7 @@ npm run dev
 Build the frontend:
 
 ```bash
-cd scrappysHouse
+cd frontend
 npm run build
 ```
 
@@ -247,20 +247,20 @@ Main PostgreSQL tables include:
 - `app.agent_query_log` - Agent query logging.
 - `app.retrieval_log` - Retrieval logging.
 
-Migrations live in `scrappysScrapyard/alembic/`.
+Migrations live in `backend/alembic/`.
 
 ## Project Structure
 
 ```text
 scrappy/
-├── scrappysHouse/          # React frontend
+├── frontend/               # React frontend
 │   ├── src/
 │   │   ├── auth/           # Auth provider and session handling
 │   │   ├── components/     # Shared and feature UI components
 │   │   ├── layouts/        # Route layout components
 │   │   ├── pages/          # Page-level views
 │   │   └── services/       # Axios API wrappers
-├── scrappysScrapyard/      # FastAPI backend
+├── backend/                # FastAPI backend
 │   ├── api/                # API routers and endpoint modules
 │   ├── auth/               # Auth dependencies
 │   ├── cache/              # Redis helpers and lifecycle

@@ -16,14 +16,14 @@ Scrappy is a full-stack web application made of:
 
 | Service | Location | Technology | Purpose |
 | --- | --- | --- | --- |
-| Frontend | `scrappysHouse` | React, Vite, Tailwind CSS | Web UI for users, authentication screens, admin screens, and file store views |
-| Backend API | `scrappysScrapyard` | FastAPI, Python, Uvicorn | REST API, authentication flow, file metadata, file jobs, health checks |
+| Frontend | `frontend` | React, Vite, Tailwind CSS | Web UI for users, authentication screens, admin screens, and file store views |
+| Backend API | `backend` | FastAPI, Python, Uvicorn | REST API, authentication flow, file metadata, file jobs, health checks |
 | Database | `postgres` Docker service | PostgreSQL 17 with pgvector | Stores users, file metadata, jobs, logs, conversations, and vector-related data |
 | Cache | `db-cache` Docker service | Redis | Caching layer used by the backend |
 
 ## Frontend Stack
 
-The frontend is located in `scrappysHouse`.
+The frontend is located in `frontend`.
 
 Main technologies:
 
@@ -45,7 +45,7 @@ Primary responsibilities:
 
 ## Backend Stack
 
-The backend is located in `scrappysScrapyard`.
+The backend is located in `backend`.
 
 Main technologies:
 
@@ -136,8 +136,8 @@ Configuration is environment-based.
 Files used by Compose:
 
 - Root `.env` for shared infrastructure values like PostgreSQL credentials.
-- `scrappysHouse/.env` for frontend environment variables.
-- `scrappysScrapyard/.env` for backend environment variables.
+- `frontend/.env` for frontend environment variables.
+- `backend/.env` for backend environment variables.
 
 Important frontend variable:
 
