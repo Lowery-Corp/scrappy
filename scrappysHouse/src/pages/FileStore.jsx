@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { getBucketStructure, syncBucketStructure, uploadFile, deleteFile, bulkDeleteFiles } from "../services/blob";
+import { getBucketStructure, syncBucketStructure } from "../services/blob";
+import { uploadFile, deleteFile, bulkDeleteFiles } from "../services/user_files"
 import CreateFolder from "../components/fileStoreComs/CreateFolder";
 import FileRename from "../components/fileStoreComs/FileRename";
 import UploadProgress from "../components/fileStoreComs/UploadProgress";
