@@ -38,7 +38,6 @@ from schemas.user_conversation import (
     UserConversationUpdate,
 )
 
-
 def _sse_event(event: str, data: dict[str, Any]) -> str:
     return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
