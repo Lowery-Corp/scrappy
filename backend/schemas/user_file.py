@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
@@ -53,3 +54,9 @@ class UserFileRead(BaseModel):
     # ready_at: datetime | None
     created_at: datetime
     updated_at: datetime
+
+
+class ReadUserFiles(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    files: list[UserFileRead]

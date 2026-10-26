@@ -12,7 +12,7 @@ import Unauthorized from "./pages/Unauthorized";
 import DocumentChat from "./pages/DocumentChat";
 
 export default function App() {
-  const { user, logout, isAuthenticated, authLoading} = useAuth();
+  const { user, logout, isAuthenticated, authLoading } = useAuth();
 
   if (authLoading) {
     return <div>Loading...</div>;
@@ -28,61 +28,61 @@ export default function App() {
             <div className="flex min-w-0 items-center gap-8">
               <div className="flex shrink-0 items-center">
                 {isAuthenticated ? (
-                <Link
-                  to="/"
-                  className="text-xl font-bold text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 transition-colors"
-                >
-                  Scrappy
-                </Link>
-              ) : (
-                <Link
-                  to="/user/login"
-                  className="text-xl font-bold text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 transition-colors"
-                >
-                  Scrappy
-                </Link>
+                  <Link
+                    to="/"
+                    className="text-xl font-bold text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 transition-colors"
+                  >
+                    Scrappy
+                  </Link>
+                ) : (
+                  <Link
+                    to="/user/login"
+                    className="text-xl font-bold text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 transition-colors"
+                  >
+                    Scrappy
+                  </Link>
                 )}
               </div>
 
               {/* Navigation Links */}
               <div className="hidden min-w-0 items-center space-x-2 md:flex">
-              {isAuthenticated ? (
-                <>
+                {isAuthenticated ? (
+                  <>
+                    <Link
+                      to="/about"
+                      className="text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                    >
+                      About
+                    </Link>
+                    <Link
+                      to="/store"
+                      className="text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                    >
+                      File Store
+                    </Link>
+                    <Link
+                      to="/chat"
+                      className="text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                    >
+                      Chat
+                    </Link>
+                    {user?.permissions?.includes("read:admin") && (
+                      <Link
+                        to="/auth/admin"
+                        className="text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                      >
+                        Admin
+                      </Link>
+                    )}
+                  </>
+                ) : (
                   <Link
                     to="/about"
                     className="text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 px-3 py-2 rounded-md text-sm font-medium transition-colors"
                   >
                     About
                   </Link>
-                  <Link
-                    to="/store"
-                    className="text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 px-3 py-2 rounded-md text-sm font-medium transition-colors"
-                  >
-                    File Store
-                  </Link>
-                  <Link
-                    to="/chat"
-                    className="text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 px-3 py-2 rounded-md text-sm font-medium transition-colors"
-                  >
-                    Chat
-                  </Link>
-                  {user?.permissions?.includes("read:admin") && (
-                    <Link
-                      to="/auth/admin"
-                      className="text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 px-3 py-2 rounded-md text-sm font-medium transition-colors"
-                    >
-                      Admin
-                    </Link>
-                  )}
-                </>
-              ) : (
-                <Link
-                  to="/about"
-                  className="text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 px-3 py-2 rounded-md text-sm font-medium transition-colors"
-                >
-                  About
-                </Link>
-              )}
+                )}
               </div>
             </div>
 
@@ -94,7 +94,7 @@ export default function App() {
                     to="/"
                     className="rounded-md px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 hover:text-purple-600 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-purple-400"
                   >
-                    Welcome, {user?.username}
+                    Welcome, {user}
                   </Link>
                   <button
                     onClick={logout}

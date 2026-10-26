@@ -45,3 +45,10 @@ class FileJobRead(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+
+class FileJobListRead(BaseModel):
+    status: list[str] | None = None
+    job_type: str | None = None
+    created_at: float | None = None
+    limit: int = 50
+    offset: int = 0

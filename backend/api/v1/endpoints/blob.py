@@ -8,7 +8,7 @@ from auth.dependencies import get_current_user
 from db.dependencies import get_session
 from repositories.filestore import (
     sync_user_bucketstore,
-    get_user_bucketstore,
+    get_user_bucketstore_structure,
     add_file_to_bucketstore,
     delete_file_from_bucketstore,
     delete_folder_from_bucketstore,
@@ -22,7 +22,7 @@ async def fetch_bucket_structure(
     current_user: AuthorizedUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_session)
 ) -> dict[str, Any]:
-    bucket_structure: dict[str, Any] = await get_user_bucketstore(user_id=current_user.id, session=session)
+    bucket_structure: dict[str, Any] = await get_user_bucketstore_structure(user_id=current_user.id, session=session)
 
     return bucket_structure
 
@@ -53,6 +53,7 @@ async def upload_file(
         )
 
     insert_status = await add_file_to_bucketstore(user_id=current_user.id, file_path=file_path, file=file, session=session) # type: ignore
+    print("Insert status:", insert_status, flush=True)
     assert insert_status["ok"] == True, f"Failed to add file to bucketstore: {insert_status}"
 
     return {
