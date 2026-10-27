@@ -121,7 +121,7 @@ POSTGRES_MAIN_DB=postgres
 Create `frontend/.env` and point the frontend at the backend:
 
 ```bash
-VITE_SCRAPPYS_SCRAPYARD_URL=http://localhost:8000
+VITE_SCRAPPYS_SCRAPYARD_URL=http://localhost:8010
 ```
 
 Create `backend/.env` with backend settings. Important variables include:
@@ -147,11 +147,11 @@ docker-compose up -d
 
 Common local URLs:
 
-- Frontend: `http://localhost:5173`
-- Backend API: `http://localhost:8000`
-- API docs: `http://localhost:8000/docs`
-- PostgreSQL: `localhost:5432`
-- Redis: `localhost:6379`
+- Frontend: `http://localhost:5175`
+- Backend API: `http://localhost:8010`
+- API docs: `http://localhost:8010/docs`
+- PostgreSQL: `localhost:5444`
+- Redis: `localhost:6380`
 
 Stop services:
 
@@ -182,6 +182,23 @@ Build the frontend:
 cd frontend
 npm run build
 ```
+
+Run the contract tests:
+
+```bash
+cd backend
+python -m unittest discover -s tests -v
+cd ../frontend
+npm test
+```
+
+The default Compose file is intentionally development-oriented (source mounts and hot reload). For a production-style run with a built frontend and no reload/source mounts, use:
+
+```bash
+docker compose -f docker-compose.yaml -f docker-compose.production.yaml up -d --build
+```
+
+The single frontend Dockerfile has development and production build targets. The production target serves the built Vite artifact directly; TLS and reverse-proxy routing should be handled by the external Nginx gateway.
 
 ## API Endpoints
 

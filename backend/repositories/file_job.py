@@ -8,16 +8,14 @@ from models.user_file import UserFile
 from schemas.file_job import FileJobCreate, FileJobUpdate, FileJobRead
 
 async def create_file_job(
-    user_id: uuid.UUID,
+    user_id: uuid.UUID | None,
     file_job: FileJobCreate,
     session: AsyncSession,
 ) -> FileJob | None:
-    user_file = await session.scalar(
-        select(UserFile).where(
-            UserFile.file_id == file_job.file_id,
-            UserFile.user_id == user_id,
-        )
-    )
+    stmt = select(UserFile).where(UserFile.file_id == file_job.file_id)
+    if user_id is not None:
+        stmt = stmt.where(UserFile.user_id == user_id)
+    user_file = await session.scalar(stmt)
 
     if user_file is None:
         return None
@@ -94,7 +92,7 @@ async def update_file_job(
 
     updated_file_job = await session.scalar(
         update(FileJob)
-        .where(FileJob.file_id == existing_file_job.file_id)
+        .where(FileJob.job_id == job_id)
         .values(**update_values)
         .returning(FileJob)
     )
@@ -120,7 +118,7 @@ async def increment_attempt_count(
 
     updated_file_job = await session.scalar(
         update(FileJob)
-        .where(FileJob.file_id == existing_file_job.file_id)
+        .where(FileJob.job_id == job_id)
         .values(attempt_count=existing_file_job.attempt_count + 1)
         .returning(FileJob)
     )

@@ -2,7 +2,7 @@ import uuid
 from typing import Any
 
 from httpxC.http_client import http_client
-from schemas.user import UserToken, AuthorizedUser
+from schemas.user import AuthorizedUser
 from core.config import settings
 from core.retry import build_http_retry
 
@@ -62,6 +62,7 @@ async def register_user(email: str, password: str) -> dict[str, Any]:
         auth_endpoint,
         json={"email": email, "password": password},
     )
+    response.raise_for_status()
     data = response.json()
     if data.get("message") == "User with this email already exists":
         return {"ok": False, "error": data.get("message")}
@@ -74,12 +75,9 @@ async def register_user(email: str, password: str) -> dict[str, Any]:
 
 @build_http_retry(attempts=2)
 async def internal_api_login() -> bool:
-    user_token: UserToken | bool = await login_user(
+    user_token: str = await login_user(
         settings.internal_api_username,
         settings.internal_api_password,
     )
-    if type(user_token) is bool:
-        return user_token
-
-    settings.internal_cookie = user_token.token
+    settings.internal_cookie = user_token
     return True

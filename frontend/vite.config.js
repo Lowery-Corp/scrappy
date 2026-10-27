@@ -7,6 +7,6 @@ export default defineConfig({
   server: {
     port: 5173,
     host: "0.0.0.0",
-    allowedHosts: ["localhost", "scrappys-house.local", "dscrappy.johnmgrubbs.io", "scrappy.johnmgrubbs.io"],
-  }
+    allowedHosts: ["dscrappy.johnmgrubbs.io", "scrappy.johnmgrubbs.io"],
+  },
 });

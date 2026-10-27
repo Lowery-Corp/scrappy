@@ -1,11 +1,12 @@
 import uuid
+import logging
 from pathlib import Path
 import json as JSON
 from typing import Mapping, Any
 
 LLM_INSTRUCTIONS_PATH = (Path(__file__).parent.parent / 'llm_instructions/docs_chat.md').read_text(encoding='utf-8')
 
-from sqlalchemy import delete, insert, select, update
+from sqlalchemy import and_, delete, func, insert, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,6 +14,7 @@ from models.conversation_message import ConversationMessage
 from models.user_conversation import UserConversation
 from models.user_file import UserFile
 from repositories.openai import (
+    OpenAIStreamEvent,
     create_openai_conversation,
     create_openai_response,
     get_response_output_text,
@@ -32,6 +34,9 @@ from schemas.user_conversation import (
     UserConversationRead,
     UserConversationUpdate,
 )
+from core.errors import OwnershipError, ScrappyError
+
+logger = logging.getLogger(__name__)
 
 CHUNKS_PER_RELEVANT_FILE = 5
 
@@ -70,6 +75,20 @@ async def create_user_conversation(
     user_conversation: UserConversationCreate,
     session: AsyncSession,
 ) -> UserConversationRead | None:
+    requested_file_ids = set(user_conversation.relevant_file_ids)
+    if requested_file_ids:
+        owned_file_ids = set(
+            await session.scalars(
+                select(UserFile.file_id).where(
+                    UserFile.user_id == user_id,
+                    UserFile.status != "deleted",
+                    UserFile.file_id.in_(requested_file_ids),
+                )
+            )
+        )
+        if owned_file_ids != requested_file_ids:
+            raise OwnershipError("One or more referenced files are not owned by the current user")
+
     new_user_conversation: dict[str, str | uuid.UUID | list[uuid.UUID] | None] = {
         "user_id": user_id,
         "conversation_name": _conversation_name_from_message(
@@ -86,7 +105,8 @@ async def create_user_conversation(
             .returning(UserConversation)
         )
         await session.commit()
-        assert created_user_conversation is not None, "Failed to create user conversation"
+        if created_user_conversation is None:
+            raise ScrappyError("Failed to create user conversation")
 
         user_conversation_id = created_user_conversation.conversation_id
 
@@ -96,7 +116,8 @@ async def create_user_conversation(
             conversation_message=user_conversation.user_message,
             session=session,
         )
-        assert new_conversation_message is not None, "Failed to create initial conversation message"
+        if new_conversation_message is None:
+            raise ScrappyError("Failed to create initial conversation message")
 
         return await _conversation_read(created_user_conversation, session=session, include_messages=True)
     except IntegrityError:
@@ -105,37 +126,48 @@ async def create_user_conversation(
 
 
 async def list_user_conversations(
-    user_id: str,
+    user_id: uuid.UUID,
     session: AsyncSession,
     limit: int = 50,
     offset: int = 0,
 ) -> list[UserConversationRead]:
-    result = await session.scalars(
-        select(UserConversation)
+    latest_messages = (
+        select(
+            ConversationMessage.user_conversation_id.label("conversation_id"),
+            ConversationMessage.message_text.label("preview"),
+            func.row_number()
+            .over(
+                partition_by=ConversationMessage.user_conversation_id,
+                order_by=ConversationMessage.created_at.desc(),
+            )
+            .label("row_number"),
+        )
+        .subquery()
+    )
+    result = await session.execute(
+        select(UserConversation, latest_messages.c.preview)
+        .outerjoin(
+            latest_messages,
+            and_(
+                latest_messages.c.conversation_id == UserConversation.id,
+                latest_messages.c.row_number == 1,
+            ),
+        )
         .where(UserConversation.user_id == user_id)
         .order_by(UserConversation.created_at.desc())
         .limit(limit)
         .offset(offset)
     )
 
-    conversations = list(result)
-    conversation_reads = [
-        await _conversation_read(
+    conversation_reads: list[UserConversationRead] = []
+    for user_conversation, preview in result.all():
+        conversation_read = await _conversation_read(
             user_conversation,
             session=session,
         )
-        for user_conversation in conversations
-    ]
-
-    for conversation_read, user_conversation in zip(conversation_reads, conversations):
-        latest_message = await session.scalar(
-            select(ConversationMessage)
-            .where(ConversationMessage.user_conversation_id == user_conversation.id)
-            .order_by(ConversationMessage.created_at.desc())
-            .limit(1)
-        )
-        if latest_message is not None:
-            conversation_read.preview = latest_message.message_text.strip()
+        if preview is not None:
+            conversation_read.preview = preview.strip()
+        conversation_reads.append(conversation_read)
 
     return conversation_reads
 
@@ -183,6 +215,20 @@ async def update_user_conversation(
     if not update_values:
         return await _conversation_read(existing_user_conversation, session=session)
 
+    requested_file_ids = set(update_values.get("relevant_file_ids") or [])
+    if requested_file_ids:
+        owned_file_ids = set(
+            await session.scalars(
+                select(UserFile.file_id).where(
+                    UserFile.user_id == user_id,
+                    UserFile.status != "deleted",
+                    UserFile.file_id.in_(requested_file_ids),
+                )
+            )
+        )
+        if owned_file_ids != requested_file_ids:
+            raise OwnershipError("One or more referenced files are not owned by the current user")
+
     try:
         updated_user_conversation = await session.scalar(
             update(UserConversation)
@@ -202,12 +248,11 @@ async def update_user_conversation(
 
 
 async def check_file_ownership(user_id: uuid.UUID, file_id: uuid.UUID, session: AsyncSession) -> bool:
-    # Implement the logic to check if the user owns the file.
-    # This is a placeholder implementation. Replace it with your actual logic.
     result = await session.scalar(
-        select(UserConversation).where(
-            UserConversation.user_id == user_id,
-            UserConversation.relevant_file_ids.contains([file_id])
+        select(UserFile.file_id).where(
+            UserFile.user_id == user_id,
+            UserFile.file_id == file_id,
+            UserFile.status != "deleted",
         )
     )
     return result is not None
@@ -226,9 +271,9 @@ async def update_user_conversation_files(
         )
     )
 
-    # user_owns_file = await check_file_ownership(user_id, file_id, session)
-    # if not user_owns_file:
-    #     return None
+    user_owns_file = await check_file_ownership(user_id, file_id, session)
+    if not user_owns_file:
+        raise OwnershipError("File is not owned by the current user")
 
     if existing_user_conversation is None:
         return None
@@ -355,23 +400,72 @@ async def get_or_create_openai_conversation_id(
     }
 
 
+async def _build_relevant_file_instructions(
+    user_id: uuid.UUID,
+    relevant_file_ids: list[uuid.UUID] | None,
+    message_text: str,
+    session: AsyncSession,
+) -> str:
+    relevant_file_chunks_by_file: list[str] = []
+    if relevant_file_ids:
+        embedding = await create_llm_embedding(message_text)
+        for relevant_file_id in relevant_file_ids:
+            user_file = await session.scalar(
+                select(UserFile).where(
+                    UserFile.user_id == user_id,
+                    UserFile.file_id == relevant_file_id,
+                    UserFile.status != "deleted",
+                )
+            )
+            file_label = (
+                f"{user_file.original_filename} ({relevant_file_id})"
+                if user_file is not None
+                else str(relevant_file_id)
+            )
+            file_chunks = await list_file_chunks(
+                session=session,
+                embedding=embedding,
+                limit=CHUNKS_PER_RELEVANT_FILE,
+                file_id=relevant_file_id,
+            )
+            relevant_file_chunks_by_file.append(
+                f"Data from file {file_label}:\n"
+                + "\n\n".join(chunk.chunk_text for chunk in file_chunks)
+            )
+
+    return JSON.dumps(
+        {
+            "instructions": LLM_INSTRUCTIONS_PATH,
+            "relevant_file_chunks": relevant_file_chunks_by_file,
+        }
+    )
+
+
 async def create_openai_response_conversation_message(
     user_id: uuid.UUID,
     conversation_id: uuid.UUID,
     message_text: str,
     session: AsyncSession,
 ) -> ConversationMessageRead | None:
-    openai_conversation_id = await get_or_create_openai_conversation_id(
+    conversation_state = await get_or_create_openai_conversation_id(
         user_id=user_id,
         conversation_id=conversation_id,
         session=session,
     )
-    if openai_conversation_id is None:
+    openai_conversation_id = conversation_state.get("openai_conversation_id")
+    if not isinstance(openai_conversation_id, str):
         return None
 
+    instructions = await _build_relevant_file_instructions(
+        user_id=user_id,
+        relevant_file_ids=conversation_state.get("relevant_file_ids"),
+        message_text=message_text,
+        session=session,
+    )
     openai_response = await create_openai_response(
         input=message_text,
         conversation=openai_conversation_id,
+        instructions=instructions,
         metadata={
             "user_id": str(user_id),
             "conversation_id": str(conversation_id),
@@ -398,62 +492,24 @@ async def stream_openai_response_conversation_text(
     message_text: str,
     session: AsyncSession,
 ):
-    # TODO:   1. repositories/user_conversation.py:348: get_or_create_openai_conversation_id() now returns a dict, but create_openai_response_conversation_message() still treats the return value like a string conversation id. That means the non-streaming path passes the
-    #      whole mapping as conversation, and it never injects retrieved chunks.
-
-    #   2. repositories/user_conversation.py:189: check_file_ownership() is checking UserConversation.relevant_file_ids, not UserFile. This blocks adding a file unless it is already attached to some conversation, which makes the first attach fail. Ownership should
-    #      query UserFile by user_id and file_id.
-
-    #   3. schemas/user_conversation.py:9: conversation creation accepts relevant_file_ids directly, but I don’t see ownership validation there. Even if the attach endpoint is fixed, a user could potentially create a conversation with arbitrary file UUIDs unless this
-    #      path validates them too.
-
-    #   4. repositories/file_chunk.py:31: file_id / file_ids are still typed as int, but the model uses UUID. Same general mismatch appears in schemas/file_chunk.py:14 for updates. Runtime may work with UUID values, but the annotations are misleading and will keep
-    #      causing API/repository mistakes.
-
-    #   The main improvement is real: repositories/file_chunk.py:47 now triggers cosine ordering when an embedding is provided, and embedding_status is back to being a real filter. That fixes the core retrieval bug from before.
-
-    relivent_conversation = await get_or_create_openai_conversation_id(
+    conversation_state = await get_or_create_openai_conversation_id(
         user_id=user_id,
         conversation_id=conversation_id,
         session=session,
     )
-    relevant_file_ids = relivent_conversation.get("relevant_file_ids")
-    openai_conversation_id = relivent_conversation.get("openai_conversation_id")
+    relevant_file_ids = conversation_state.get("relevant_file_ids")
+    openai_conversation_id = conversation_state.get("openai_conversation_id")
 
-    if not relevant_file_ids or not openai_conversation_id:
-        print("No relevant file IDs or openai conversation ID found. Skipping embedding and file chunk retrieval.", flush=True)
+    if not openai_conversation_id:
+        yield OpenAIStreamEvent(event_type="error", text="Conversation is not ready")
         return
 
-    embedding = await create_llm_embedding(message_text)
-
-    relevant_file_chunks_by_file: list[str] = []
-    for relevant_file_id in relevant_file_ids:
-        user_file = await session.scalar(
-            select(UserFile).where(
-                UserFile.user_id == user_id,
-                UserFile.file_id == relevant_file_id,
-            )
-        )
-        file_label = (
-            f"{user_file.original_filename} ({relevant_file_id})"
-            if user_file is not None
-            else str(relevant_file_id)
-        )
-        file_chunks = await list_file_chunks(
-            session=session,
-            embedding=embedding,
-            limit=CHUNKS_PER_RELEVANT_FILE,
-            file_id=relevant_file_id,
-        )
-        relevant_file_chunks_by_file.append(
-            f"Data from file {file_label}:\n"
-            + "\n\n".join(chunk.chunk_text for chunk in file_chunks)
-        )
-
-    instructions: dict[str, list[str] | str] = {
-        "instructions": LLM_INSTRUCTIONS_PATH,
-        "relevant_file_chunks": relevant_file_chunks_by_file,
-    }
+    instructions = await _build_relevant_file_instructions(
+        user_id=user_id,
+        relevant_file_ids=relevant_file_ids,
+        message_text=message_text,
+        session=session,
+    )
 
     async for event in stream_openai_response_text(
         input=message_text,
@@ -462,7 +518,7 @@ async def stream_openai_response_conversation_text(
             "user_id": str(user_id),
             "conversation_id": str(conversation_id),
         },
-        instructions=JSON.dumps(instructions),
+        instructions=instructions,
     ):
         yield event
 

@@ -1,5 +1,5 @@
 import uuid
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 class UserCreate(BaseModel):
     username: EmailStr
@@ -42,6 +42,8 @@ class UserToken(BaseModel):
 
 class LoginResponse(BaseModel):
     username: EmailStr
+    is_admin: bool = False
+    permissions: list[str] = Field(default_factory=list)
 
 class AuthorizedUser(BaseModel):
     id: uuid.UUID

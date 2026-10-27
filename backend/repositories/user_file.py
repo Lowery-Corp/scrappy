@@ -38,6 +38,8 @@ async def get_user_files(
         stmt = stmt.where(UserFile.storage_key == storage_key)
     if status is not None:
         stmt = stmt.where(UserFile.status == status)
+    else:
+        stmt = stmt.where(UserFile.status != "deleted")
 
     results = await session.scalars(stmt)
 
@@ -84,7 +86,7 @@ async def delete_user_file(
     file_id: uuid.UUID | None = None,
     storage_key: str | None = None,
     user_id: uuid.UUID | None = None,
-) -> None:
+) -> bool:
     existing_user_file = await get_user_files(
         file_id=file_id,
         storage_key=storage_key,
@@ -103,3 +105,6 @@ async def delete_user_file(
             stmt = stmt.where(UserFile.user_id == user_id)
         await session.execute(stmt)
         await session.commit()
+        return True
+
+    return False

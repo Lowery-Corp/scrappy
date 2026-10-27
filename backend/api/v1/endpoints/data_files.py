@@ -14,7 +14,7 @@ from schemas.user_file import UserFileRead, UserFileUpdate, ReadUserFiles
 
 router = APIRouter(tags=["data_files"])
 
-@router.get("", response_model=list[ReadUserFiles], dependencies=[Depends(require_admin_user)])
+@router.get("", response_model=ReadUserFiles, dependencies=[Depends(require_admin_user)])
 @router.get("/{file_id}", response_model=ReadUserFiles, dependencies=[Depends(require_admin_user)])
 @router.get("/user/{user_id}", response_model=ReadUserFiles, dependencies=[Depends(require_admin_user)])
 async def get_file_route(
@@ -35,11 +35,7 @@ async def get_file_route(
             detail="User file not found",
         )
 
-    return_files: ReadUserFiles = ReadUserFiles(files=[])
-    if files:
-        return_files.files = files
-
-    return return_files
+    return ReadUserFiles(files=files)
 
 
 @router.patch("/{file_id}", response_model=UserFileRead, dependencies=[Depends(require_admin_user)])

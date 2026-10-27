@@ -26,15 +26,11 @@ async def get_user_file(
         session=session
     )
 
-    if not user_files:
+    if file_id is not None and not user_files:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User file not found",
         )
 
-    return_files: ReadUserFiles = ReadUserFiles(files=[])
-    if user_files:
-        return_files.files = user_files
-
-    return return_files
+    return ReadUserFiles(files=user_files or [])
 

@@ -1,0 +1,72 @@
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: production
+      args:
+        VITE_SCRAPPYS_SCRAPYARD_URL: ${VITE_SCRAPPYS_SCRAPYARD_URL:-http://localhost:8010}
+    ports:
+      - "5175:8000"
+    env_file:
+      - ./frontend/.env
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    working_dir: /app
+    command: python -m uvicorn main:app --host 0.0.0.0 --port 8000
+    env_file:
+      - ./backend/.env
+    ports:
+      - "8010:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+  postgres:
+    image: pgvector/pgvector:pg17
+    ports:
+      - "5444:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_MAIN_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_MAIN_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_MAIN_DB}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_MAIN_USER} -d ${POSTGRES_MAIN_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+    volumes:
+      - postgres_data_scrappys_metadata:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d
+    env_file:
+      - .env
+
+  db-cache:
+    image: redis:7.4-alpine
+    ports:
+      - "6380:6379"
+    volumes:
+      - db_redis_cache_scrappys_cache:/var/lib/redis
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  db_redis_cache_scrappys_cache:
+  postgres_data_scrappys_metadata:

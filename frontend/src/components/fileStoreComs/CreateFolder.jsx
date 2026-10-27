@@ -3,9 +3,9 @@ import { useState } from "react";
 export default function CreateFolder({ isVisible, onClose, onCreateFolder }) {
   const [folderName, setFolderName] = useState("");
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (folderName.trim()) {
-      onCreateFolder(folderName);
+      await onCreateFolder(folderName.trim());
       setFolderName("");
       onClose();
     }

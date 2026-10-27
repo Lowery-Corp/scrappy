@@ -12,7 +12,7 @@ class FileChunkCreate(BaseModel):
 
 
 class FileChunkUpdate(BaseModel):
-    file_id: int | None = None
+    file_id: uuid.UUID | None = None
     chunk_index: int | None = None
     chunk_text: str | None = None
     embedding: list[float] | None = None

@@ -10,8 +10,10 @@ from repositories.filestore import (
     sync_user_bucketstore,
     get_user_bucketstore_structure,
     add_file_to_bucketstore,
+    create_folder_in_bucketstore,
     delete_file_from_bucketstore,
     delete_folder_from_bucketstore,
+    rename_path_in_bucketstore,
 )
 
 router = APIRouter(tags=["blob"])
@@ -28,7 +30,7 @@ async def fetch_bucket_structure(
 
 
 @router.post("/sync")
-async def sync_bucket_structiure(
+async def sync_bucket_structure(
     session: AsyncSession = Depends(get_session),
     current_user: AuthorizedUser = Depends(get_current_user)
 ) -> dict[str, Any]:
@@ -36,6 +38,36 @@ async def sync_bucket_structiure(
     await sync_user_bucketstore(user_id=current_user.id, session=session)
 
     return {"ok": True}
+
+
+@router.post("/folder")
+async def create_folder(
+    folder_path: str,
+    current_user: AuthorizedUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    return await create_folder_in_bucketstore(
+        user_id=current_user.id,
+        folder_path=folder_path,
+        session=session,
+    )
+
+
+@router.post("/rename")
+async def rename_path(
+    source_path: str,
+    destination_path: str,
+    is_folder: bool = False,
+    current_user: AuthorizedUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    return await rename_path_in_bucketstore(
+        user_id=current_user.id,
+        source_path=source_path,
+        destination_path=destination_path,
+        is_folder=is_folder,
+        session=session,
+    )
 
 
 @router.post("/upload")
@@ -52,9 +84,17 @@ async def upload_file(
             detail="Missing filename",
         )
 
-    insert_status = await add_file_to_bucketstore(user_id=current_user.id, file_path=file_path, file=file, session=session) # type: ignore
-    print("Insert status:", insert_status, flush=True)
-    assert insert_status["ok"] == True, f"Failed to add file to bucketstore: {insert_status}"
+    insert_status = await add_file_to_bucketstore(
+        user_id=current_user.id,
+        file_path=file_path,
+        file=file,
+        session=session,
+    )
+    if not insert_status.get("ok"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=insert_status.get("message", "File upload failed"),
+        )
 
     return {
         "ok": True,
@@ -67,8 +107,11 @@ async def delete_file(
     current_user: AuthorizedUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_session)
 ) -> dict[str, Any]:
-    delete_status = await delete_file_from_bucketstore(user_id=current_user.id, file_path=file_path, session=session)
-    assert delete_status["ok"] == True, f"Failed to delete file from bucketstore: {delete_status}"
+    await delete_file_from_bucketstore(
+        user_id=current_user.id,
+        file_path=file_path,
+        session=session,
+    )
 
     return {"ok": True}
 
@@ -79,7 +122,11 @@ async def bulk_delete_files(
     current_user: AuthorizedUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_session)
 ) -> dict[str, Any]:
-    delete_status = await delete_folder_from_bucketstore(user_id=current_user.id, file_path=folder_path, session=session, is_folder=True)
-    assert delete_status["ok"] == True, f"Failed to bulk delete files from bucketstore: {delete_status}"
+    await delete_folder_from_bucketstore(
+        user_id=current_user.id,
+        file_path=folder_path,
+        session=session,
+        is_folder=True,
+    )
 
     return {"ok": True}

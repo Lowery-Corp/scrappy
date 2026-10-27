@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { SESSION_EXPIRED_EVENT, api, notifySessionExpired } from "../services/api";
 
@@ -40,7 +40,7 @@ export function AuthProvider({ children }) {
       console.log("Login successful:", user_data);
 
       if (user_data.username) {
-        setUser(user_data.username);
+        setUser(user_data);
         navigate("/about")
         return { ok: true };
       }
@@ -160,7 +160,7 @@ export function AuthProvider({ children }) {
 
         const response = await getCurrentUser();
         if (response.username) {
-          setUser(response.username);
+          setUser(response);
         } else {
           setUser(null);
         }
@@ -174,20 +174,17 @@ export function AuthProvider({ children }) {
     loadCurrentUser();
   }, []);
 
-  const value = useMemo(
-    () => ({
-      user,
-      authError,
-      login,
-      logout,
-      createUser,
-      hasPermission,
-      isAuthenticated: !!user,
-      authLoading,
-      clearAuthError: () => setAuthError(null),
-    }),
-    [user, authError, authLoading]
-  );
+  const value = {
+    user,
+    authError,
+    login,
+    logout,
+    createUser,
+    hasPermission,
+    isAuthenticated: !!user,
+    authLoading,
+    clearAuthError: () => setAuthError(null),
+  };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

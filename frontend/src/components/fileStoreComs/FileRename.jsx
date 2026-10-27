@@ -3,9 +3,9 @@ import { useState } from "react";
 export default function FileRename({ renameTarget, onClose, onConfirmRename }) {
   const [newName, setNewName] = useState(renameTarget?.name || "");
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (newName.trim() && renameTarget) {
-      onConfirmRename(renameTarget, newName);
+      await onConfirmRename(renameTarget, newName.trim());
       onClose();
     }
   };

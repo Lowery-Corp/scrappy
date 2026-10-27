@@ -16,7 +16,10 @@ class Settings(BaseSettings):
     rabbitmq_default_user: str
     rabbitmq_default_pass: str
     cookie_key: str
+    cookie_secure: bool = True
     scrappys_api_key: str
+    max_upload_size_bytes: int = 50 * 1024 * 1024
+    allowed_origins: list[str]
 
     internal_cookie: str | None = None
     openai_api_key: str | None = None

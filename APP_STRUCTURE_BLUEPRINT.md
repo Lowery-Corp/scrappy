@@ -60,8 +60,8 @@ Docker Compose services:
 
 | Service | Purpose | Port |
 | --- | --- | --- |
-| `scrappys-house` | Vite React frontend dev server. | `5173` |
-| `scrappys-scrapyard` | FastAPI backend served by Uvicorn. | `8000` |
+| `frontend` | Vite React frontend dev server. | `5173` |
+| `backend` | FastAPI backend served by Uvicorn. | `8000` |
 | `postgres` | PostgreSQL 17 with pgvector support. | `5432` |
 | `db-cache` | Redis cache. | `6379` |
 | `rabbitmq_data` volume | Declared volume reserved for queue/broker data; no RabbitMQ service is currently active in `docker-compose.yaml`. | n/a |
@@ -352,8 +352,8 @@ The current app uses project-specific names:
 
 - `frontend`: frontend.
 - `backend`: backend.
-- `scrappys-house`: frontend Docker Compose service.
-- `scrappys-scrapyard`: backend Docker Compose service.
+- `frontend`: frontend Docker Compose service.
+- `backend`: backend Docker Compose service.
 
 When creating a new app from this blueprint, preserve the roles but rename consistently:
 
@@ -361,8 +361,8 @@ When creating a new app from this blueprint, preserve the roles but rename consi
 | --- | --- |
 | `frontend` | `<appName>House` or `frontend` |
 | `backend` | `<appName>Scrapyard` or `backend` |
-| `scrappys-house` | `<app-name>-frontend` |
-| `scrappys-scrapyard` | `<app-name>-backend` |
+| `frontend` | `<app-name>-frontend` |
+| `backend` | `<app-name>-backend` |
 
 Pick either themed names or generic names. Do not mix both in a new app.
 

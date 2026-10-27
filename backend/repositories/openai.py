@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import json
 from typing import Any
 
-from httpx import HTTPStatusError
+from httpx import HTTPError, HTTPStatusError
 
 from core.config import settings
 from httpxC.http_client import http_client
@@ -48,6 +48,8 @@ async def _request_json(
         data = response.json()
     except HTTPStatusError as exc:
         raise OpenAIRepositoryError(exc.response.text) from exc
+    except HTTPError as exc:
+        raise OpenAIRepositoryError("OpenAI request failed") from exc
 
     if not isinstance(data, dict):
         raise OpenAIRepositoryError("OpenAI API returned an unexpected response")
@@ -204,21 +206,24 @@ async def stream_openai_response(
     if metadata is not None:
         body["metadata"] = metadata
 
-    async with http_client.stream(
-        "POST",
-        _url("/v1/responses"),
-        headers=_headers(),
-        json=body,
-    ) as response:
-        try:
-            response.raise_for_status()
-        except HTTPStatusError as exc:
-            error_body = await response.aread()
-            raise OpenAIRepositoryError(error_body.decode()) from exc
+    try:
+        async with http_client.stream(
+            "POST",
+            _url("/v1/responses"),
+            headers=_headers(),
+            json=body,
+        ) as response:
+            try:
+                response.raise_for_status()
+            except HTTPStatusError as exc:
+                error_body = await response.aread()
+                raise OpenAIRepositoryError(error_body.decode()) from exc
 
-        async for line in response.aiter_lines():
-            if line:
-                yield line
+            async for line in response.aiter_lines():
+                if line:
+                    yield line
+    except HTTPError as exc:
+        raise OpenAIRepositoryError("OpenAI streaming request failed") from exc
 
 
 @dataclass

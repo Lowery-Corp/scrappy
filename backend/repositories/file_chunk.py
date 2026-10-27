@@ -29,8 +29,8 @@ async def create_file_chunk(
 
 async def list_file_chunks(
     session: AsyncSession,
-    file_id: int | None = None,
-    file_ids: list[int] | None = None,
+    file_id: uuid.UUID | None = None,
+    file_ids: list[uuid.UUID] | None = None,
     embedding_status: str | None = None,
     embedding: list[float] | None = None,
     chunk_index: int | None = None,
@@ -92,7 +92,7 @@ async def update_file_chunk(
     file_chunk_id: int,
     file_chunk_update: FileChunkUpdate,
     session: AsyncSession,
-) -> list[FileChunk] | None:
+) -> FileChunk | None:
     existing_file_chunks = await get_file_chunks(
         file_chunk_id=file_chunk_id,
         session=session,
@@ -122,7 +122,7 @@ async def update_file_chunk(
         await session.rollback()
         return None
 
-    return updated_file_chunks
+    return updated_file_chunks[0] if updated_file_chunks else None
 
 
 async def delete_file_chunk(
@@ -135,8 +135,8 @@ async def delete_file_chunk(
         file_chunk_id=file_chunk_id,
         session=session,
     )
-    if existing_file_chunks is None:
-        return True
+    if not existing_file_chunks:
+        return False
 
     stmt = delete(FileChunk)
 

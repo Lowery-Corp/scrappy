@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { getBucketStructure, syncBucketStructure } from "../services/blob";
+import {
+  createFolder as createFolderRequest,
+  getBucketStructure,
+  renamePath,
+  syncBucketStructure,
+} from "../services/blob";
 import { uploadFile, deleteFile, bulkDeleteFiles } from "../services/user_files"
 import CreateFolder from "../components/fileStoreComs/CreateFolder";
 import FileRename from "../components/fileStoreComs/FileRename";
@@ -221,16 +226,13 @@ export default function FileStore() {
     setIsDragOver(false);
   };
 
-  const createFolder = (folderName) => {
-    const newFolder = {
-      id: `folder-${Date.now()}`,
-      name: folderName,
-      type: "folder",
-      path: currentPath + folderName,
-      createdAt: new Date().toISOString().split("T")[0],
-    };
-
-    setFolders((prev) => [...prev, newFolder]);
+  const createFolder = async (folderName) => {
+    try {
+      await createFolderRequest(`${currentPath}${folderName}`);
+      await handleSync();
+    } catch (error) {
+      console.error("Failed to create folder:", error);
+    }
   };
 
   const deleteSelected = async () => {
@@ -279,22 +281,18 @@ export default function FileStore() {
     setRenameTarget(item);
   };
 
-  const confirmRename = (target, newName) => {
-    if (target.type === "folder") {
-      setFolders((prev) =>
-        prev.map((folder) =>
-          folder.id === target.id ? { ...folder, name: newName } : folder
-        )
-      );
-    } else {
-      setFiles((prev) =>
-        prev.map((file) =>
-          file.id === target.id ? { ...file, name: newName } : file
-        )
-      );
-    }
+  const confirmRename = async (target, newName) => {
+    const parentPath = target.path.slice(0, target.path.lastIndexOf("/") + 1);
+    const destinationPath = `${parentPath}${newName}`;
 
-    setRenameTarget(null);
+    try {
+      await renamePath(target.path, destinationPath, target.type === "folder");
+      await handleSync();
+    } catch (error) {
+      console.error("Failed to rename path:", error);
+    } finally {
+      setRenameTarget(null);
+    }
   };
 
   const toggleSelection = (itemId) => {
@@ -358,6 +356,7 @@ export default function FileStore() {
       />
 
       <FileRename
+        key={renameTarget?.id || renameTarget?.path || "rename"}
         renameTarget={renameTarget}
         onClose={() => setRenameTarget(null)}
         onConfirmRename={confirmRename}

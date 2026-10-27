@@ -19,13 +19,11 @@ router = APIRouter(tags=["jobs"])
 @router.post("", response_model=FileJobRead, status_code=status.HTTP_201_CREATED)
 async def create_file_job_route(
     file_job: FileJobCreate,
-    current_user: AuthorizedUser = Depends(get_current_user),
+    current_user: AuthorizedUser = Depends(require_admin_user),
     session: AsyncSession = Depends(get_session),
 ) -> FileJobRead:
-    require_admin_user(current_user)
-
     created_file_job = await create_file_job(
-        user_id=current_user.id,
+        user_id=None,
         file_job=file_job,
         session=session,
     )

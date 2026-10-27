@@ -8,13 +8,15 @@ from schemas.conversation_message import ConversationMessageRead, ConversationMe
 
 class UserConversationCreate(BaseModel):
     user_message: ConversationMessageCreate
-    relevant_file_ids: list[uuid.UUID] = []
+    relevant_file_ids: list[uuid.UUID] = Field(default_factory=list)
     openai_conversation_id: str | None = None
 
 
 class UserConversationUpdate(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     conversation_name: str | None = None
-    file_ids: list[uuid.UUID] | None = None
+    relevant_file_ids: list[uuid.UUID] | None = Field(default=None, alias="file_ids")
     openai_conversation_id: str | None = None
 
 

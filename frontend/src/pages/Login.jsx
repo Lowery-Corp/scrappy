@@ -12,13 +12,13 @@ export default function Login() {
     return <Navigate to="/" replace />;
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
 
-    const result = login({ username, password });
+    const result = await login({ username, password });
     if (!result.ok) {
-      setError(result.error);
+      setError(result.error || "Login failed");
     }
   };
 
@@ -50,7 +50,8 @@ export default function Login() {
             </label>
             <input
               id="username"
-              type="text"
+              type="email"
+              autoComplete="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
@@ -69,6 +70,7 @@ export default function Login() {
             <input
               id="password"
               type="password"
+              autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required

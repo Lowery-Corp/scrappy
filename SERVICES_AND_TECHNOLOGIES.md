@@ -80,24 +80,24 @@ Infrastructure is currently managed with `docker-compose.yaml`.
 
 Active Compose services:
 
-- `scrappys-house`
-- `scrappys-scrapyard`
+- `frontend`
+- `backend`
 - `postgres`
 - `db-cache`
 
 Exposed local ports:
 
-- Frontend: `5173`
-- Backend API: `8000`
-- PostgreSQL: `5432`
-- Redis: `6379`
+- Frontend: `5175` (host) / `5173` (container)
+- Backend API: `8010` (host) / `8000` (container)
+- PostgreSQL: `5444` (host) / `5432` (container)
+- Redis: `6380` (host) / `6379` (container)
 
 Docker images and runtimes:
 
 - Frontend uses `node:20-alpine`.
 - Backend uses `python:3.14-slim`.
 - Database uses `pgvector/pgvector:pg17`.
-- Cache uses `redis:latest`.
+- Development Compose uses pinned `redis:7.4-alpine`; production should keep image versions pinned and update them deliberately.
 
 ## Data Layer
 

@@ -26,17 +26,29 @@ export default function CreateUser() {
       return;
     }
 
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters long");
+    if (
+      password.length < 8 ||
+      !/[A-Za-z]/.test(password) ||
+      !/[0-9]/.test(password) ||
+      ![..."!@#$%^&*()-_=+[]{}|;:,.<>?/"].some((character) =>
+        password.includes(character),
+      )
+    ) {
+      setError(
+        "Password must be at least 8 characters and include a letter, number, and special character",
+      );
       setIsLoading(false);
       return;
     }
 
-    const result = createUser({ username, password });
-    if (!result.ok) {
-      setError(result.error);
+    try {
+      const result = await createUser({ username, password });
+      if (!result.ok) {
+        setError(result.error || "User creation failed");
+      }
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   return (
@@ -67,7 +79,8 @@ export default function CreateUser() {
             </label>
             <input
               id="username"
-              type="text"
+              type="email"
+              autoComplete="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
@@ -86,6 +99,7 @@ export default function CreateUser() {
             <input
               id="password"
               type="password"
+              autoComplete="new-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -104,6 +118,7 @@ export default function CreateUser() {
             <input
               id="confirmPassword"
               type="password"
+              autoComplete="new-password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required

@@ -19,3 +19,21 @@ export const syncBucketStructure = async () => {
     throw error;
   }
 };
+
+export const createFolder = async (folderPath) => {
+  const response = await api.post("/api/v1/blob/folder", null, {
+    params: { folder_path: folderPath },
+  });
+  return response.data;
+};
+
+export const renamePath = async (sourcePath, destinationPath, isFolder) => {
+  const response = await api.post("/api/v1/blob/rename", null, {
+    params: {
+      source_path: sourcePath,
+      destination_path: destinationPath,
+      is_folder: isFolder,
+    },
+  });
+  return response.data;
+};

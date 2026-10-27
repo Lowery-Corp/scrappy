@@ -38,7 +38,7 @@ async def create_file_chunk_route(
 
 @router.get("", response_model=list[FileChunkRead], dependencies=[Depends(require_admin_user)])
 async def list_file_chunks_route(
-    file_id: int | None = None,
+    file_id: uuid.UUID | None = None,
     embedding_status: str | None = Query(default=None, alias="status"),
     chunk_index: int | None = None,
     limit: int = Query(default=50, ge=1, le=100),
@@ -64,7 +64,7 @@ async def get_file_chunk_route(
     file_chunk_id: int,
     file_id: uuid.UUID | None = None,
     session: AsyncSession = Depends(get_session),
-) -> list[FileChunkRead]:
+) -> FileChunkRead:
 
     file_chunk = await get_file_chunks(
         file_chunk_id=file_chunk_id,
@@ -72,13 +72,13 @@ async def get_file_chunk_route(
         session=session,
     )
 
-    if file_chunk is None:
+    if not file_chunk:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="File chunk not found",
         )
 
-    return file_chunk
+    return file_chunk[0]
 
 
 @router.patch("/{file_chunk_id}", response_model=FileChunkRead, dependencies=[Depends(require_admin_user)])

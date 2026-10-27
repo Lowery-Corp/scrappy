@@ -18,10 +18,17 @@ const parseStreamEvent = (rawEvent) => {
     return null;
   }
 
-  return {
-    event,
-    data: JSON.parse(dataLines.join("\n")),
-  };
+  try {
+    return {
+      event,
+      data: JSON.parse(dataLines.join("\n")),
+    };
+  } catch {
+    return {
+      event: "error",
+      data: { detail: "Malformed streaming event" },
+    };
+  }
 };
 
 const readConversationStream = async (response, handlers = {}) => {
@@ -88,7 +95,11 @@ const postConversationStream = async (path, body, handlers) => {
     body: JSON.stringify(body),
   });
 
-  await readConversationStream(response, handlers);
+  try {
+    await readConversationStream(response, handlers);
+  } finally {
+    handlers.done?.();
+  }
 };
 
 export const getUserConversations = async () => {
