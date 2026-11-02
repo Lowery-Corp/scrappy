@@ -25,7 +25,9 @@ COPY --from=build /app/package*.json ./
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/vite.config.js ./vite.config.js
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 EXPOSE 8000
 
-CMD ["npm", "run", "preview", "--", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["/usr/local/bin/docker-entrypoint.sh", "npm", "run", "preview", "--", "--host", "0.0.0.0", "--port", "8000"]

@@ -98,6 +98,27 @@ jobs:
           tailscale ping "$SERVER_HOST"
           timeout 10 bash -c "</dev/tcp/${SERVER_HOST}/22"
 
+      - name: Prepare deployment directory
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          SERVER_APP_DIR: ${{ secrets.SERVER_APP_DIR }}
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: 22
+          protocol: tcp4
+          timeout: 1m
+          envs: SERVER_APP_DIR
+          script: |
+            set -eu
+            : "${SERVER_APP_DIR:?SERVER_APP_DIR secret is required}"
+            if ! mkdir -p "$SERVER_APP_DIR/postgres/init"; then
+              echo "Unable to create $SERVER_APP_DIR/postgres/init; check the path and SSH user permissions" >&2
+              exit 1
+            fi
+            echo "Deployment directory is ready"
+
       - name: Deploy Compose stack over Tailscale
         uses: appleboy/ssh-action@v1.2.0
         env:
@@ -120,7 +141,6 @@ jobs:
             : "${DOCKERHUB_TOKEN:?DOCKERHUB_TOKEN secret is required}"
             : "${IMAGE_TAG:?GitHub commit tag is required}"
 
-            mkdir -p "$SERVER_APP_DIR/postgres/init"
             cd "$SERVER_APP_DIR"
 
             for required_file in .env backend/.env frontend/.env; do
