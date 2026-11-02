@@ -8,12 +8,12 @@ export default defineConfig({
   server: {
     port: 5173,
     host: "0.0.0.0",
-    allowedHosts: ["dscrappy.johnmgrubbs.io"],
+    allowedHosts: ["dscrappy.johnmgrubbs.io", "scrappy.johnmgrubbs.io"],
   },
 
   preview: {
-    port: 5173,
+    port: 8000,
     host: "0.0.0.0",
-    allowedHosts: ["scrappy.johnmgrubbs.io"],
+    allowedHosts: ["dscrappy.johnmgrubbs.io", "scrappy.johnmgrubbs.io"],
   },
 });
