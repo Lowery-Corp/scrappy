@@ -4,8 +4,6 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       target: production
-      args:
-        VITE_SCRAPPYS_SCRAPYARD_URL: ${VITE_SCRAPPYS_SCRAPYARD_URL:-http://localhost:8010}
     ports:
       - "5175:8000"
     env_file:
