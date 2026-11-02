@@ -3,6 +3,7 @@ from datetime import datetime
 from sqlalchemy import delete, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from cache.app_cache import app_cache
 from models.file_job import FileJob
 from models.user_file import UserFile
 from schemas.file_job import FileJobCreate, FileJobUpdate, FileJobRead
@@ -31,6 +32,8 @@ async def create_file_job(
         .returning(FileJob)
     )
     await session.commit()
+    if created_file_job is not None:
+        await app_cache.invalidate_admin()
 
     return created_file_job
 
@@ -101,6 +104,7 @@ async def update_file_job(
     if not updated_file_job:
         raise ValueError(f"Failed to update file job with ID {job_id}")
 
+    await app_cache.invalidate_admin()
     return updated_file_job
 
 
@@ -127,6 +131,7 @@ async def increment_attempt_count(
     if not updated_file_job:
         raise ValueError(f"Failed to increment attempt count for file job with ID {job_id}")
 
+    await app_cache.invalidate_admin()
     return updated_file_job
 
 
@@ -144,5 +149,6 @@ async def delete_file_job(
 
     await session.execute(delete(FileJob).where(FileJob.id == existing_file_job.id))
     await session.commit()
+    await app_cache.invalidate_admin()
 
     return True

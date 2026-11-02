@@ -85,7 +85,7 @@ export default function FileDisplay({
 
   return (
     <div
-      className={`relative overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition-all dark:border-gray-700 dark:bg-gray-800 ${
+      className={`relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm shadow-slate-900/5 transition-all dark:border-slate-800 dark:bg-slate-900 ${
         isDragOver
           ? "ring-2 ring-purple-500 bg-purple-50 dark:bg-purple-900/10"
           : ""
@@ -97,25 +97,25 @@ export default function FileDisplay({
       {isDragOver && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-purple-500/10 backdrop-blur-[1px]">
           <div className="text-center text-purple-600 dark:text-purple-400">
-            <div className="mb-1 text-2xl">📤</div>
-            <div className="text-sm font-medium">Drop files to upload</div>
+            <div className="mb-2 text-2xl">⇧</div>
+            <div className="text-sm font-semibold">Drop files to upload</div>
           </div>
         </div>
       )}
 
       {items.length === 0 ? (
-        <div className="px-4 py-10 text-center">
-          <div className="mb-2 text-3xl">📁</div>
-          <h3 className="text-base font-semibold text-gray-900 dark:text-white">
-            No files or folders
+        <div className="px-4 py-16 text-center">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-2xl text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300">⌁</div>
+          <h3 className="text-base font-semibold text-slate-900 dark:text-white">
+            This folder is empty
           </h3>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Upload files or create a folder to get started
+          <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500 dark:text-slate-400">
+            Upload a document or create a folder to start organizing your workspace.
           </p>
         </div>
       ) : (
         <div>
-          <div className="grid grid-cols-[36px_minmax(0,1.8fr)_100px_100px_130px_130px_44px] items-center border-b border-gray-200 bg-gray-50 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-400">
+          <div className="hidden grid-cols-[36px_minmax(0,1.8fr)_100px_100px_130px_130px_44px] items-center border-b border-slate-200 bg-slate-50 px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 md:grid dark:border-slate-800 dark:bg-slate-950/50 dark:text-slate-400">
             <div />
             <div>Name</div>
             <div>Size</div>
@@ -134,11 +134,11 @@ export default function FileDisplay({
             return (
               <div
                 key={item.id}
-                className={`group grid grid-cols-[36px_minmax(0,1.8fr)_100px_100px_130px_130px_44px] items-center gap-0 px-3 py-2 ${
+                className={`group grid grid-cols-[32px_minmax(0,1fr)_auto] grid-rows-[auto_auto] items-center gap-x-3 gap-y-1 px-4 py-3.5 transition md:grid-cols-[36px_minmax(0,1.8fr)_100px_100px_130px_130px_44px] md:grid-rows-1 md:gap-0 md:py-3 ${
                   isSelected
-                    ? "bg-purple-50 dark:bg-purple-900/20"
-                    : "bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700/40"
-                } ${!isLast ? "border-b border-gray-200 dark:border-gray-700" : ""} ${
+                    ? "bg-indigo-50/70 dark:bg-indigo-500/10"
+                    : "bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-800/70"
+                } ${!isLast ? "border-b border-slate-100 dark:border-slate-800" : ""} ${
                   isLoading ? "opacity-70" : ""
                 }`}
               >
@@ -148,7 +148,7 @@ export default function FileDisplay({
                     checked={isSelected}
                     onChange={() => onToggleSelection(item.id)}
                     onClick={(e) => e.stopPropagation()}
-                    className="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500 dark:border-gray-600 dark:bg-gray-700"
+                    className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800"
                     aria-label={`Select ${item.name}`}
                   />
                 </div>
@@ -164,12 +164,12 @@ export default function FileDisplay({
                     isFolder ? "cursor-pointer" : "cursor-default"
                   }`}
                 >
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-gray-100 text-base dark:bg-gray-700">
-                    {isFolder ? "📁" : getFileIcon(item.name)}
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-base dark:bg-slate-800">
+                    {isFolder ? "▰" : getFileIcon(item.name)}
                   </div>
 
                   <div className="min-w-0">
-                    <div className="truncate text-sm font-medium text-gray-900 dark:text-white">
+                    <div className="truncate text-sm font-semibold text-slate-900 dark:text-white">
                       {item.name}
                     </div>
                     {isFolder && isLoading && (
@@ -180,13 +180,13 @@ export default function FileDisplay({
                   </div>
                 </button>
 
-                <div className="truncate pr-3 text-xs text-gray-500 dark:text-gray-400">
+                <div className="col-start-3 row-start-1 truncate text-right text-xs text-slate-500 md:col-auto md:row-auto md:pr-3 dark:text-slate-400">
                   {isFolder ? "—" : item.size}
                 </div>
 
-                <div className="pr-3">
+                <div className="col-start-2 row-start-2 pr-3 md:col-auto md:row-auto">
                   {isFolder ? (
-                    <span className="text-xs text-gray-500 dark:text-gray-400">—</span>
+                    <span className="text-xs text-slate-400 dark:text-slate-500">Folder</span>
                   ) : (
                     <span
                       className={`inline-flex max-w-full items-center rounded-full px-2 py-0.5 text-[11px] font-medium leading-5 ring-1 ring-inset ${getStatusBadgeClasses(item.status)}`}
@@ -197,22 +197,22 @@ export default function FileDisplay({
                   )}
                 </div>
 
-                <div className="truncate pr-3 text-xs text-gray-500 dark:text-gray-400">
+                <div className="hidden truncate pr-3 text-xs text-slate-500 md:block dark:text-slate-400">
                   {item.createdAt}
                 </div>
 
-                <div className="truncate pr-3 text-xs text-gray-500 dark:text-gray-400">
+                <div className="hidden truncate pr-3 text-xs text-slate-500 md:block dark:text-slate-400">
                   {item.updatedAt ?? item.createdAt}
                 </div>
 
-                <div className="flex justify-end">
+                <div className="col-start-3 row-start-2 flex justify-end md:col-auto md:row-auto">
                   {!isFolder || !isLoading ? (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         onStartRename(item);
                       }}
-                      className="rounded-md p-1 text-gray-400 opacity-0 transition hover:bg-gray-100 hover:text-purple-600 group-hover:opacity-100 dark:hover:bg-gray-700"
+                      className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-indigo-600 md:opacity-0 md:group-hover:opacity-100 dark:hover:bg-slate-800"
                       aria-label={`Rename ${item.name}`}
                     >
                       ✏️

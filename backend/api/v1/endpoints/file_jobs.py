@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth.dependencies import get_current_user, require_admin_user
+from cache.app_cache import ADMIN_CACHE_TTL_SECONDS, CACHE_PREFIX, app_cache
 from db.dependencies import get_session
 from repositories.file_job import (
     create_file_job,
@@ -34,6 +35,7 @@ async def create_file_job_route(
             detail="File not found",
         )
 
+    await app_cache.invalidate_admin()
     return created_file_job
 
 
@@ -42,6 +44,16 @@ async def list_file_jobs_route(
     params: FileJobListRead = Query(),
     session: AsyncSession = Depends(get_session),
 ) -> list[str]:
+    cache_key = (
+        f"{CACHE_PREFIX}:admin:file-jobs:list:"
+        f"status:{','.join(params.status or ())}:type:{params.job_type or 'all'}:"
+        f"created:{params.created_at if params.created_at is not None else 'all'}:"
+        f"limit:{params.limit}:offset:{params.offset}"
+    )
+    cached_jobs = await app_cache.get_json(cache_key)
+    if cached_jobs is not None:
+        return [str(job_id) for job_id in cached_jobs]
+
     file_jobs = await list_file_jobs(
         session=session,
         status=params.status,
@@ -51,6 +63,7 @@ async def list_file_jobs_route(
         offset=params.offset,
     )
 
+    await app_cache.set_json(cache_key, file_jobs, ADMIN_CACHE_TTL_SECONDS)
     return file_jobs
 
 
@@ -59,6 +72,10 @@ async def get_file_job_route(
     job_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
 ) -> FileJobRead:
+    cache_key = f"{CACHE_PREFIX}:admin:file-job:{job_id}"
+    cached_job = await app_cache.get_json(cache_key)
+    if cached_job is not None:
+        return FileJobRead.model_validate(cached_job)
 
     file_job = await get_file_job(
         job_id=job_id,
@@ -71,6 +88,7 @@ async def get_file_job_route(
             detail="File job not found",
         )
 
+    await app_cache.set_json(cache_key, file_job.model_dump(mode="json"), ADMIN_CACHE_TTL_SECONDS)
     return file_job
 
 
@@ -92,6 +110,7 @@ async def update_file_job_route(
             detail="File job not found or update violates a database constraint",
         )
 
+    await app_cache.invalidate_admin()
     updated_file_job_read = FileJobRead.model_validate(updated_file_job)
 
     return updated_file_job_read
@@ -112,6 +131,7 @@ async def increment_attempt_count_route(
             detail="File job not found",
         )
 
+    await app_cache.invalidate_admin()
     updated_file_job_read = FileJobRead.model_validate(updated_file_job)
 
     return updated_file_job_read

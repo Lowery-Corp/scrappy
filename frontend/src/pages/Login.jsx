@@ -6,7 +6,8 @@ export default function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const { login, isAuthenticated, authError } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
+  const { login, isAuthenticated } = useAuth();
 
   if (isAuthenticated) {
     return <Navigate to="/" replace />;
@@ -15,28 +16,35 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-
-    const result = await login({ username, password });
-    if (!result.ok) {
-      setError(result.error || "Login failed");
+    setIsLoading(true);
+    try {
+      const result = await login({ username, password });
+      if (!result.ok) {
+        setError(result.error || "Login failed");
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center px-4">
-      <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            Welcome Back
+    <div className="relative flex min-h-[calc(100vh-4.25rem)] items-center justify-center overflow-hidden bg-slate-50 px-4 py-12 dark:bg-slate-950">
+      <div className="pointer-events-none absolute -left-24 -top-24 h-72 w-72 rounded-full bg-indigo-300/30 blur-3xl dark:bg-indigo-600/10" />
+      <div className="pointer-events-none absolute -bottom-28 -right-20 h-80 w-80 rounded-full bg-violet-300/25 blur-3xl dark:bg-violet-600/10" />
+      <div className="relative w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 shadow-xl shadow-slate-900/5 sm:p-10 dark:border-slate-800 dark:bg-slate-900">
+        <div className="mb-8">
+          <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-lg font-black text-white shadow-lg shadow-indigo-500/20">S</div>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-950 dark:text-white">
+            Welcome back
           </h1>
-          <p className="text-gray-600 dark:text-gray-300">
-            Sign in to your account
+          <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
+            Sign in to continue to your workspace.
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-5">
           {error && (
-            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 px-4 py-3 rounded-lg">
+            <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700 dark:border-rose-900/70 dark:bg-rose-950/30 dark:text-rose-300">
               {error}
             </div>
           )}
@@ -44,7 +52,7 @@ export default function Login() {
           <div>
             <label
               htmlFor="username"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+              className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200"
             >
               Username
             </label>
@@ -55,7 +63,7 @@ export default function Login() {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
-              className="w-full px-4 py-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors"
+              className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 placeholder:text-slate-400 transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:focus:bg-slate-800"
               placeholder="Enter your username"
             />
           </div>
@@ -63,7 +71,7 @@ export default function Login() {
           <div>
             <label
               htmlFor="password"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+              className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200"
             >
               Password
             </label>
@@ -74,33 +82,26 @@ export default function Login() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full px-4 py-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors"
+              className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 placeholder:text-slate-400 transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:focus:bg-slate-800"
               placeholder="Enter your password"
             />
           </div>
 
           <button
             type="submit"
-            className="w-full py-3 px-4 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white font-semibold rounded-lg transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-purple-200 dark:focus:ring-purple-800"
+            disabled={isLoading}
+            className="h-12 w-full rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white shadow-lg shadow-indigo-600/20 transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Sign In
+            {isLoading ? "Signing in…" : "Sign in"}
           </button>
         </form>
 
-        <br />
-        <p className="text-red-600 dark:text-red-400 mt-4 text-center">
-          {authError ? "Error: " + authError : ""}
-        </p>
-
-        <div className="mt-6 text-center space-y-2">
-          {/* <p className="text-sm text-gray-600 dark:text-gray-400">
-            Demo credentials: admin/password or user/password
-          </p> */}
-          <p className="text-sm text-gray-600 dark:text-gray-400">
+        <div className="mt-7 border-t border-slate-100 pt-6 text-center dark:border-slate-800">
+          <p className="text-sm text-slate-500 dark:text-slate-400">
             Don't have an account?{" "}
             <Link
               to="/user/create"
-              className="text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 font-medium transition-colors"
+              className="font-semibold text-indigo-600 transition hover:text-indigo-700 dark:text-indigo-300 dark:hover:text-indigo-200"
             >
               Create one here
             </Link>

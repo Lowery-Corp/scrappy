@@ -79,21 +79,21 @@ export default function ChatSidebar({
   };
 
   return (
-    <aside className="flex w-full flex-col rounded-xl border border-gray-200 bg-white/95 shadow-lg dark:border-gray-700 dark:bg-gray-800/95 lg:h-[calc(100vh-4rem)] lg:w-72 lg:shrink-0 lg:rounded-none lg:border-y-0 lg:border-l-0 lg:shadow-none xl:w-80">
-      <div className="border-b border-gray-200 p-2.5 text-left dark:border-gray-700">
+    <aside className="flex w-full flex-col rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:h-[calc(100vh-4.25rem)] lg:w-80 lg:shrink-0 lg:rounded-none lg:border-y-0 lg:border-l-0 lg:shadow-none xl:w--[22rem]">
+      <div className="border-b border-slate-200 p-4 text-left dark:border-slate-800">
         <div className="flex items-center justify-between gap-2">
           <div>
-            <p className="text-[11px] font-medium text-purple-600 dark:text-purple-400">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-indigo-600 dark:text-indigo-300">
               Document Chat
             </p>
-            <h1 className="m-0 text-lg font-semibold text-gray-900 dark:text-white">
+            <h1 className="m-0 text-xl font-bold tracking-tight text-slate-950 dark:text-white">
               Chats
             </h1>
           </div>
 
           <button
             type="button"
-            className="rounded-md bg-purple-600 px-2 py-1 text-xs font-medium text-white transition-colors hover:bg-purple-700"
+            className="rounded-lg bg-indigo-600 px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-indigo-700"
             onClick={() => newChat()}
           >
             New
@@ -107,7 +107,7 @@ export default function ChatSidebar({
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
             placeholder="Search chats"
-            className="h-8 w-full rounded-md border border-gray-300 bg-white px-2 text-xs text-gray-900 outline-none transition-colors placeholder:text-gray-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:focus:ring-purple-900"
+            className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:bg-slate-950"
           />
         </label>
 
@@ -115,7 +115,7 @@ export default function ChatSidebar({
         <div className="mt-2 flex items-center justify-between gap-1.5">
           <button
             type="button"
-            className="rounded-md border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+            className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
             onClick={() => {
               // toggle multi-select mode
               setMultiSelectMode(!multiSelectMode);
@@ -131,7 +131,7 @@ export default function ChatSidebar({
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
-                className="rounded-md border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
                 onClick={toggleSelectAll}
                 disabled={filteredChatIds.length === 0}
               >
@@ -141,7 +141,7 @@ export default function ChatSidebar({
               <button
                 type="button"
                 disabled={multipleSelectedChatIds.length === 0}
-                className="rounded-md bg-red-600 px-2 py-1 text-xs font-medium text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-red-300 dark:disabled:bg-red-900"
+                className="rounded-lg bg-rose-600 px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:bg-rose-300 dark:disabled:bg-rose-900"
                 onClick={() => {
                   if (multipleSelectedChatIds.length === 0) return;
                   deleteChat(multipleSelectedChatIds);
@@ -174,8 +174,8 @@ export default function ChatSidebar({
               key={chatId}
               className={`group min-w-56 rounded-md border px-2 py-1.5 text-left transition-colors lg:min-w-0 ${
                 isActive
-                  ? "border-purple-300 bg-purple-50 shadow-sm dark:border-purple-700 dark:bg-purple-950/40"
-                  : "border-transparent bg-transparent hover:bg-gray-50 dark:hover:bg-gray-700/60"
+                  ? "border-indigo-200 bg-indigo-50 shadow-sm dark:border-indigo-800 dark:bg-indigo-950/40"
+                  : "border-transparent bg-transparent hover:bg-slate-50 dark:hover:bg-slate-800/60"
               } ${
                 isSelected
                   ? "ring-2 ring-red-400 dark:ring-red-500"

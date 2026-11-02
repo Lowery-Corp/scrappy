@@ -1,4 +1,5 @@
-import { Link, Navigate, Route, Routes } from "react-router";
+import { useState } from "react";
+import { Link, NavLink, Navigate, Route, Routes } from "react-router";
 import { useAuth } from "./auth/AuthProvider";
 import ProtectedRoute from "./components/ProtectedRoute";
 import UserLayout from "./layouts/UserLayout";
@@ -13,106 +14,146 @@ import DocumentChat from "./pages/DocumentChat";
 
 export default function App() {
   const { user, logout, isAuthenticated, authLoading } = useAuth();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const navItems = isAuthenticated
+    ? [
+        { to: "/about", label: "About" },
+        { to: "/store", label: "File Store" },
+        { to: "/chat/new", label: "Document Chat" },
+        ...(user?.permissions?.includes("read:admin")
+          ? [{ to: "/auth/admin", label: "Admin" }]
+          : []),
+      ]
+    : [{ to: "/about", label: "About" }];
+
+  const closeMobileMenu = () => setMobileMenuOpen(false);
 
   if (authLoading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 text-sm text-slate-500">
+        <div className="flex items-center gap-3 rounded-full border border-slate-200 bg-white px-4 py-2 shadow-sm">
+          <span className="h-2 w-2 animate-pulse rounded-full bg-indigo-500" />
+          Loading your workspace…
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Navigation Bar */}
-      <nav className="bg-white dark:bg-gray-800 shadow-lg border-b border-gray-200 dark:border-gray-700">
-        <div className="mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            {/* Logo/Brand */}
+    <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+      <nav className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 shadow-[0_1px_12px_rgba(15,23,42,0.04)] backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/90">
+        <div className="mx-auto max-w-[1600px] px-4 sm:px-6 lg:px-8">
+          <div className="flex h-[4.25rem] items-center justify-between gap-4">
             <div className="flex min-w-0 items-center gap-8">
-              <div className="flex shrink-0 items-center">
-                {isAuthenticated ? (
-                  <Link
-                    to="/"
-                    className="text-xl font-bold text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 transition-colors"
-                  >
-                    Scrappy
-                  </Link>
-                ) : (
-                  <Link
-                    to="/user/login"
-                    className="text-xl font-bold text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 transition-colors"
-                  >
-                    Scrappy
-                  </Link>
-                )}
-              </div>
+              <Link
+                to={isAuthenticated ? "/" : "/user/login"}
+                onClick={closeMobileMenu}
+                className="flex shrink-0 items-center gap-2.5 text-lg font-bold tracking-tight text-slate-950 dark:text-white"
+              >
+                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-sm font-black text-white shadow-lg shadow-indigo-500/20">
+                  S
+                </span>
+                Scrappy
+              </Link>
 
-              {/* Navigation Links */}
-              <div className="hidden min-w-0 items-center space-x-2 md:flex">
-                {isAuthenticated ? (
-                  <>
-                    <Link
-                      to="/about"
-                      className="text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 px-3 py-2 rounded-md text-sm font-medium transition-colors"
-                    >
-                      About
-                    </Link>
-                    <Link
-                      to="/store"
-                      className="text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 px-3 py-2 rounded-md text-sm font-medium transition-colors"
-                    >
-                      File Store
-                    </Link>
-                    <Link
-                      to="/chat"
-                      className="text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 px-3 py-2 rounded-md text-sm font-medium transition-colors"
-                    >
-                      Chat
-                    </Link>
-                    {user?.permissions?.includes("read:admin") && (
-                      <Link
-                        to="/auth/admin"
-                        className="text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 px-3 py-2 rounded-md text-sm font-medium transition-colors"
-                      >
-                        Admin
-                      </Link>
-                    )}
-                  </>
-                ) : (
-                  <Link
-                    to="/about"
-                    className="text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+              <div className="hidden min-w-0 items-center gap-1 md:flex">
+                {navItems.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    className={({ isActive }) =>
+                      `rounded-lg px-3 py-2 text-sm font-medium transition ${
+                        isActive
+                          ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300"
+                          : "text-slate-600 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+                      }`
+                    }
                   >
-                    About
-                  </Link>
-                )}
+                    {item.label}
+                  </NavLink>
+                ))}
               </div>
             </div>
 
-            {/* User Menu */}
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center gap-2">
               {isAuthenticated ? (
-                <div className="flex items-center space-x-3">
+                <>
                   <Link
                     to="/"
-                    className="rounded-md px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 hover:text-purple-600 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-purple-400"
+                    className="hidden rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:border-indigo-200 hover:text-indigo-700 sm:inline-flex dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-indigo-500/50 dark:hover:text-indigo-300"
                   >
-                    Welcome, {user.username}
+                    {user?.username}
                   </Link>
                   <button
                     onClick={logout}
-                    className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+                    className="hidden rounded-lg px-3 py-2 text-sm font-semibold text-slate-500 transition hover:bg-rose-50 hover:text-rose-600 sm:inline-flex dark:text-slate-300 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
                   >
-                    Logout
+                    Sign out
                   </button>
-                </div>
+                </>
               ) : (
                 <Link
                   to="/user/login"
-                  className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+                  className="hidden rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 sm:inline-flex"
                 >
-                  Login
+                  Sign in
                 </Link>
               )}
+              <button
+                type="button"
+                aria-expanded={mobileMenuOpen}
+                aria-controls="mobile-navigation"
+                aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+                onClick={() => setMobileMenuOpen((open) => !open)}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-100 md:hidden dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+              >
+                <span className="text-lg">{mobileMenuOpen ? "×" : "☰"}</span>
+              </button>
             </div>
           </div>
+
+          {mobileMenuOpen && (
+            <div id="mobile-navigation" className="border-t border-slate-100 py-3 md:hidden dark:border-slate-800">
+              <div className="grid gap-1">
+                {navItems.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    onClick={closeMobileMenu}
+                    className={({ isActive }) =>
+                      `rounded-lg px-3 py-2.5 text-sm font-medium ${
+                        isActive
+                          ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300"
+                          : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                      }`
+                    }
+                  >
+                    {item.label}
+                  </NavLink>
+                ))}
+                {isAuthenticated ? (
+                  <button
+                    onClick={() => {
+                      closeMobileMenu();
+                      logout();
+                    }}
+                    className="mt-1 rounded-lg px-3 py-2.5 text-left text-sm font-semibold text-rose-600 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-500/10"
+                  >
+                    Sign out
+                  </button>
+                ) : (
+                  <Link
+                    to="/user/login"
+                    onClick={closeMobileMenu}
+                    className="mt-1 rounded-lg bg-indigo-600 px-3 py-2.5 text-sm font-semibold text-white"
+                  >
+                    Sign in
+                  </Link>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </nav>
 

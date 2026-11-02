@@ -311,11 +311,12 @@ export default function FileStore() {
     selectedFolders.length === 1 && selectedItems.length === 1;
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
-      <div className="container mx-auto px-4 py-8">
+    <div className="min-h-[calc(100vh-4.25rem)] bg-slate-50 dark:bg-slate-950">
+      <div className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
         {isLoading && (
-          <div className="mb-4 text-sm text-gray-600 dark:text-gray-300">
-            Loading...
+          <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-indigo-600 dark:text-indigo-300">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-indigo-500" />
+            Syncing workspace
           </div>
         )}
 

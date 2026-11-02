@@ -3,6 +3,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 import uuid
 
+from cache.app_cache import app_cache
 from models.file_chunk import FileChunk
 from schemas.file_chunk import FileChunkCreate, FileChunkRead, FileChunkUpdate
 
@@ -24,6 +25,8 @@ async def create_file_chunk(
         await session.rollback()
         return None
 
+    if created_file_chunk is not None:
+        await app_cache.invalidate_admin()
     return created_file_chunk
 
 
@@ -122,6 +125,8 @@ async def update_file_chunk(
         await session.rollback()
         return None
 
+    if updated_file_chunks:
+        await app_cache.invalidate_admin()
     return updated_file_chunks[0] if updated_file_chunks else None
 
 
@@ -147,6 +152,7 @@ async def delete_file_chunk(
 
     await session.execute(stmt)
     await session.commit()
+    await app_cache.invalidate_admin()
 
     return True
 

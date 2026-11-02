@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import uuid
 
 from auth.dependencies import require_admin_user
+from cache.app_cache import ADMIN_CACHE_TTL_SECONDS, CACHE_PREFIX, app_cache
 from db.dependencies import get_session
 from repositories.file_chunk import (
     create_file_chunk,
@@ -33,6 +34,7 @@ async def create_file_chunk_route(
             detail="File chunk already exists or violates a database constraint",
         )
 
+    await app_cache.invalidate_admin()
     return created_file_chunk
 
 
@@ -45,6 +47,15 @@ async def list_file_chunks_route(
     offset: int = Query(default=0, ge=0),
     session: AsyncSession = Depends(get_session),
 ) -> list[FileChunkRead]:
+    cache_key = (
+        f"{CACHE_PREFIX}:admin:file-chunks:list:file:{file_id or 'all'}:"
+        f"status:{embedding_status or 'all'}:"
+        f"index:{chunk_index if chunk_index is not None else 'all'}:"
+        f"limit:{limit}:offset:{offset}"
+    )
+    cached_chunks = await app_cache.get_json(cache_key)
+    if cached_chunks is not None:
+        return [FileChunkRead.model_validate(chunk) for chunk in cached_chunks]
 
     file_chunks = await list_file_chunks(
         session=session,
@@ -55,6 +66,11 @@ async def list_file_chunks_route(
         offset=offset,
     )
 
+    await app_cache.set_json(
+        cache_key,
+        [chunk.model_dump(mode="json") for chunk in file_chunks],
+        ADMIN_CACHE_TTL_SECONDS,
+    )
     return file_chunks
 
 
@@ -65,6 +81,10 @@ async def get_file_chunk_route(
     file_id: uuid.UUID | None = None,
     session: AsyncSession = Depends(get_session),
 ) -> FileChunkRead:
+    cache_key = f"{CACHE_PREFIX}:admin:file-chunk:{file_id or 'all'}:{file_chunk_id}"
+    cached_chunk = await app_cache.get_json(cache_key)
+    if cached_chunk is not None:
+        return FileChunkRead.model_validate(cached_chunk)
 
     file_chunk = await get_file_chunks(
         file_chunk_id=file_chunk_id,
@@ -78,7 +98,9 @@ async def get_file_chunk_route(
             detail="File chunk not found",
         )
 
-    return file_chunk[0]
+    response = file_chunk[0]
+    await app_cache.set_json(cache_key, response.model_dump(mode="json"), ADMIN_CACHE_TTL_SECONDS)
+    return response
 
 
 @router.patch("/{file_chunk_id}", response_model=FileChunkRead, dependencies=[Depends(require_admin_user)])
@@ -100,6 +122,7 @@ async def update_file_chunk_route(
             detail="File chunk not found or update violates a database constraint",
         )
 
+    await app_cache.invalidate_admin()
     return updated_file_chunk
 
 
@@ -117,4 +140,6 @@ async def delete_file_chunk_route(
         session=session,
     )
 
+    if deleted:
+        await app_cache.invalidate_admin()
     return {"ok": deleted}

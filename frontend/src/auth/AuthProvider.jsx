@@ -37,8 +37,6 @@ export function AuthProvider({ children }) {
       setAuthError(null);
 
       const user_data = await loginUser( username, password);
-      console.log("Login successful:", user_data);
-
       if (user_data.username) {
         setUser(user_data);
         navigate("/about")

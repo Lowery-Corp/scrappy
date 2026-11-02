@@ -38,7 +38,6 @@ export const deleteFile = async (file_path) => {
 
 export const bulkDeleteFiles = async (folder_path) => {
   try {
-    console.log("Initiating bulk delete for folder path:", String(folder_path));
     const response = await api.delete("/api/v1/blob/bulk-delete", {
       params: {
         folder_path: folder_path,

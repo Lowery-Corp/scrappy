@@ -4,6 +4,7 @@ from sqlalchemy import delete, insert, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from cache.app_cache import app_cache
 from models.user_file import UserFile
 from schemas.user_file import UserFileCreate, UserFileUpdate
 
@@ -15,6 +16,9 @@ async def create_user_file(
     stmt = insert(UserFile).values(**new_user_file.model_dump()).returning(UserFile)
     user_file = await session.scalar(stmt)
     await session.commit()
+    if user_file is not None:
+        await app_cache.invalidate_user(new_user_file.user_id)
+        await app_cache.invalidate_admin()
     return user_file
 
 
@@ -78,6 +82,10 @@ async def update_user_file(
         await session.rollback()
         return None
 
+    await app_cache.invalidate_user(existing_user_file.user_id)
+    await app_cache.invalidate_admin()
+    if updated_user_file is not None and updated_user_file.user_id != existing_user_file.user_id:
+        await app_cache.invalidate_user(updated_user_file.user_id)
     return updated_user_file
 
 
@@ -105,6 +113,8 @@ async def delete_user_file(
             stmt = stmt.where(UserFile.user_id == user_id)
         await session.execute(stmt)
         await session.commit()
+        await app_cache.invalidate_user(existing_user_file.user_id)
+        await app_cache.invalidate_admin()
         return True
 
     return False

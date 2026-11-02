@@ -8,6 +8,7 @@ from typing import Any
 
 from models.user_filestore import UserFileStore
 from models.user_file import UserFile
+from cache.app_cache import app_cache
 from schemas.file_job import FileJobCreate, FileJobUpdate
 from schemas.user_file import UserFileCreate
 from repositories.minio import (
@@ -90,6 +91,8 @@ async def sync_user_bucketstore(user_id: uuid.UUID, session: AsyncSession) -> di
     if updated_user_bucketstore is None:
         raise StorageOperationError(f"Failed to update UserFileStore for user ID {user_id}")
 
+    await app_cache.invalidate_user(user_id)
+    await app_cache.invalidate_admin()
     return {"message": f"UserFileStore updated for user ID {user_id}", "ok": True}
 
 

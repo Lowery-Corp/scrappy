@@ -1,10 +1,11 @@
 export default function NewFolderButton({ onNewFolder, className }) {
   return (
     <button
+      type="button"
       onClick={onNewFolder}
       className={className}
     >
-      📁 New Folder
+      <span aria-hidden="true">＋</span> New folder
     </button>
   );
 }

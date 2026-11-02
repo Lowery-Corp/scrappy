@@ -19,9 +19,10 @@ export default function CreateFolder({ isVisible, onClose, onCreateFolder }) {
   if (!isVisible) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md">
-        <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm" onMouseDown={(event) => event.target === event.currentTarget && handleClose()}>
+      <div role="dialog" aria-modal="true" aria-labelledby="create-folder-title" className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-indigo-600 dark:text-indigo-300">File store</p>
+        <h2 id="create-folder-title" className="mb-5 mt-1 text-xl font-bold tracking-tight text-slate-950 dark:text-white">
           Create New Folder
         </h2>
         <input
@@ -29,21 +30,21 @@ export default function CreateFolder({ isVisible, onClose, onCreateFolder }) {
           value={folderName}
           onChange={(e) => setFolderName(e.target.value)}
           placeholder="Folder name"
-          className="w-full px-4 py-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent mb-4"
-          onKeyPress={(e) => e.key === 'Enter' && handleSubmit()}
+          className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+          onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
           autoFocus
         />
-        <div className="flex space-x-3">
+        <div className="mt-5 flex gap-3">
           <button
             onClick={handleClose}
-            className="flex-1 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            className="h-11 flex-1 rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit}
             disabled={!folderName.trim()}
-            className="flex-1 py-2 px-4 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white rounded-lg transition-colors"
+            className="h-11 flex-1 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Create
           </button>

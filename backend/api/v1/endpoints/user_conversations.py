@@ -8,6 +8,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth.dependencies import get_current_user
+from cache.app_cache import CACHE_PREFIX, USER_CACHE_TTL_SECONDS, app_cache
 from db.dependencies import get_session
 from repositories.openai import OpenAIRepositoryError
 from core.errors import OwnershipError
@@ -85,6 +86,7 @@ async def _stream_llm_response_events(
         yield _sse_event("error", {"detail": "Conversation not found"})
         return
 
+    await app_cache.invalidate_user(user_id)
     yield _sse_event("message", response_with_llm.model_dump(mode="json"))
     yield _sse_event("done", {"ok": True})
 
@@ -113,6 +115,7 @@ async def create_user_conversation_route(
             detail="Conversation already exists or violates a database constraint",
         )
 
+    await app_cache.invalidate_user(current_user.id)
     try:
         response_with_llm = await create_openai_response_conversation_message(
             user_id=current_user.id,
@@ -154,6 +157,8 @@ async def create_user_conversation_stream_route(
             detail="Conversation already exists or violates a database constraint",
         )
 
+    await app_cache.invalidate_user(user_id)
+
     async def stream() -> AsyncIterator[str]:
         yield _sse_event(
             "conversation",
@@ -177,12 +182,23 @@ async def list_user_conversations_route(
     current_user: AuthorizedUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> list[UserConversationRead]:
-    return await list_user_conversations(
+    cache_key = f"{CACHE_PREFIX}:user:{current_user.id}:conversations:list:{limit}:{offset}"
+    cached_conversations = await app_cache.get_json(cache_key)
+    if cached_conversations is not None:
+        return [UserConversationRead.model_validate(item) for item in cached_conversations]
+
+    conversations = await list_user_conversations(
         user_id=current_user.id,
         session=session,
         limit=limit,
         offset=offset,
     )
+    await app_cache.set_json(
+        cache_key,
+        [conversation.model_dump(mode="json") for conversation in conversations],
+        USER_CACHE_TTL_SECONDS,
+    )
+    return conversations
 
 
 @router.get("/{conversation_id}", response_model=UserConversationRead)
@@ -192,6 +208,11 @@ async def get_user_conversation_route(
     current_user: AuthorizedUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> UserConversationRead:
+    cache_key = f"{CACHE_PREFIX}:user:{current_user.id}:conversation:{conversation_id}:messages:{int(get_messages)}"
+    cached_conversation = await app_cache.get_json(cache_key)
+    if cached_conversation is not None:
+        return UserConversationRead.model_validate(cached_conversation)
+
     user_conversation = await get_user_conversation(
         user_id=current_user.id,
         conversation_id=conversation_id,
@@ -205,6 +226,11 @@ async def get_user_conversation_route(
             detail="Conversation not found",
         )
 
+    await app_cache.set_json(
+        cache_key,
+        user_conversation.model_dump(mode="json"),
+        USER_CACHE_TTL_SECONDS,
+    )
     return user_conversation
 
 
@@ -231,6 +257,7 @@ async def update_user_conversation_route(
             detail="Conversation not found or update violates a database constraint",
         )
 
+    await app_cache.invalidate_user(current_user.id)
     return updated_user_conversation
 
 
@@ -252,6 +279,7 @@ async def delete_user_conversation_route(
             detail="Conversation not found",
         )
 
+    await app_cache.invalidate_user(current_user.id)
     return {"ok": True}
 
 
@@ -279,6 +307,7 @@ async def create_conversation_message_route(
             detail="Conversation not found",
         )
 
+    await app_cache.invalidate_user(current_user.id)
     try:
         response_with_llm = await create_openai_response_conversation_message(
             user_id=current_user.id,
@@ -324,6 +353,8 @@ async def create_conversation_message_stream_route(
             detail="Conversation not found",
         )
 
+    await app_cache.invalidate_user(user_id)
+
     async def stream() -> AsyncIterator[str]:
         yield _sse_event(
             "user_message",
@@ -346,12 +377,22 @@ async def list_conversation_messages_route(
     current_user: AuthorizedUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> list[ConversationMessageRead]:
+    cache_key = f"{CACHE_PREFIX}:user:{current_user.id}:conversation:{conversation_id}:messages:list"
+    cached_messages = await app_cache.get_json(cache_key)
+    if cached_messages is not None:
+        return [ConversationMessageRead.model_validate(item) for item in cached_messages]
 
-    return await list_conversation_messages(
+    messages = await list_conversation_messages(
         user_id=current_user.id,
         conversation_id=conversation_id,
         session=session,
     )
+    await app_cache.set_json(
+        cache_key,
+        [message.model_dump(mode="json") for message in messages],
+        USER_CACHE_TTL_SECONDS,
+    )
+    return messages
 
 
 @router.get("/{conversation_id}/messages/{message_id}", response_model=ConversationMessageRead)
@@ -361,6 +402,11 @@ async def get_conversation_message_route(
     current_user: AuthorizedUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> ConversationMessageRead:
+    cache_key = f"{CACHE_PREFIX}:user:{current_user.id}:conversation:{conversation_id}:message:{message_id}"
+    cached_message = await app_cache.get_json(cache_key)
+    if cached_message is not None:
+        return ConversationMessageRead.model_validate(cached_message)
+
     conversation_message = await get_conversation_message(
         user_id=current_user.id,
         conversation_id=conversation_id,
@@ -374,6 +420,11 @@ async def get_conversation_message_route(
             detail="Conversation message not found",
         )
 
+    await app_cache.set_json(
+        cache_key,
+        conversation_message.model_dump(mode="json"),
+        USER_CACHE_TTL_SECONDS,
+    )
     return conversation_message
 
 
@@ -399,6 +450,7 @@ async def update_conversation_message_route(
             detail="Conversation message not found",
         )
 
+    await app_cache.invalidate_user(current_user.id)
     return updated_conversation_message
 
 
@@ -422,6 +474,7 @@ async def delete_conversation_message_route(
             detail="Conversation message not found",
         )
 
+    await app_cache.invalidate_user(current_user.id)
     return {"ok": True}
 
 
@@ -448,4 +501,5 @@ async def add_file_to_conversation_route(
             detail="Conversation not found or update violates a database constraint",
         )
 
+    await app_cache.invalidate_user(current_user.id)
     return updated_conversation

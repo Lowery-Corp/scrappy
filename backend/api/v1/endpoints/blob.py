@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from schemas.user import AuthorizedUser
 
 from auth.dependencies import get_current_user
+from cache.app_cache import CACHE_PREFIX, USER_CACHE_TTL_SECONDS, app_cache
 from db.dependencies import get_session
 from repositories.filestore import (
     sync_user_bucketstore,
@@ -24,7 +25,13 @@ async def fetch_bucket_structure(
     current_user: AuthorizedUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_session)
 ) -> dict[str, Any]:
+    cache_key = f"{CACHE_PREFIX}:user:{current_user.id}:blob"
+    cached_structure = await app_cache.get_json(cache_key)
+    if cached_structure is not None:
+        return cached_structure
+
     bucket_structure: dict[str, Any] = await get_user_bucketstore_structure(user_id=current_user.id, session=session)
+    await app_cache.set_json(cache_key, bucket_structure, USER_CACHE_TTL_SECONDS)
 
     return bucket_structure
 
@@ -36,6 +43,7 @@ async def sync_bucket_structure(
 ) -> dict[str, Any]:
 
     await sync_user_bucketstore(user_id=current_user.id, session=session)
+    await app_cache.invalidate_user(current_user.id)
 
     return {"ok": True}
 
@@ -46,11 +54,13 @@ async def create_folder(
     current_user: AuthorizedUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, Any]:
-    return await create_folder_in_bucketstore(
+    result = await create_folder_in_bucketstore(
         user_id=current_user.id,
         folder_path=folder_path,
         session=session,
     )
+    await app_cache.invalidate_user(current_user.id)
+    return result
 
 
 @router.post("/rename")
@@ -61,13 +71,15 @@ async def rename_path(
     current_user: AuthorizedUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, Any]:
-    return await rename_path_in_bucketstore(
+    result = await rename_path_in_bucketstore(
         user_id=current_user.id,
         source_path=source_path,
         destination_path=destination_path,
         is_folder=is_folder,
         session=session,
     )
+    await app_cache.invalidate_user(current_user.id)
+    return result
 
 
 @router.post("/upload")
@@ -96,6 +108,7 @@ async def upload_file(
             detail=insert_status.get("message", "File upload failed"),
         )
 
+    await app_cache.invalidate_user(current_user.id)
     return {
         "ok": True,
     }
@@ -112,6 +125,7 @@ async def delete_file(
         file_path=file_path,
         session=session,
     )
+    await app_cache.invalidate_user(current_user.id)
 
     return {"ok": True}
 
@@ -128,5 +142,6 @@ async def bulk_delete_files(
         session=session,
         is_folder=True,
     )
+    await app_cache.invalidate_user(current_user.id)
 
     return {"ok": True}

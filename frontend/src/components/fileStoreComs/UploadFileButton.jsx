@@ -21,26 +21,36 @@ export default function UploadFileButton({ onFileUpload, className = "" }) {
       }
     };
 
+    const handleEscape = (event) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
   }, []);
 
   return (
     <div ref={wrapperRef} className="relative inline-block">
       <button
         type="button"
+        aria-expanded={open}
+        aria-haspopup="menu"
         onClick={() => setOpen((prev) => !prev)}
         className={className}
       >
-        📤 Upload
+        <span aria-hidden="true">↑</span> Upload
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full z-20 mt-2 min-w-[180px] overflow-hidden rounded-lg border border-indigo-200 bg-white shadow-lg">
+        <div role="menu" className="absolute left-0 top-full z-20 mt-2 min-w-[190px] overflow-hidden rounded-xl border border-slate-200 bg-white p-1 shadow-xl shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-900">
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="block w-full px-3 py-2 text-left text-sm font-medium text-slate-700 transition hover:bg-indigo-50 hover:text-indigo-700"
+            className="block w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-slate-700 transition hover:bg-indigo-50 hover:text-indigo-700 dark:text-slate-200 dark:hover:bg-indigo-500/10 dark:hover:text-indigo-300"
           >
             Upload Files
           </button>
@@ -48,7 +58,7 @@ export default function UploadFileButton({ onFileUpload, className = "" }) {
           <button
             type="button"
             onClick={() => folderInputRef.current?.click()}
-            className="block w-full border-t border-indigo-100 px-3 py-2 text-left text-sm font-medium text-slate-700 transition hover:bg-indigo-50 hover:text-indigo-700"
+            className="mt-1 block w-full rounded-lg border-t border-slate-100 px-3 py-2 text-left text-sm font-medium text-slate-700 transition hover:bg-indigo-50 hover:text-indigo-700 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-indigo-500/10 dark:hover:text-indigo-300"
           >
             Upload Folder
           </button>
