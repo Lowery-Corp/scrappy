@@ -80,11 +80,6 @@ jobs:
     environment: build and deploy
 
     steps:
-      - name: Checkout deployment files
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-
       - name: Connect GitHub Actions to Tailscale
         uses: tailscale/github-action@v3
         with:
@@ -102,35 +97,6 @@ jobs:
           tailscale status
           tailscale ping "$SERVER_HOST"
           timeout 10 bash -c "</dev/tcp/${SERVER_HOST}/22"
-
-      - name: Prepare deployment directory
-        uses: appleboy/ssh-action@v1.2.0
-        env:
-          SERVER_APP_DIR: ${{ secrets.SERVER_APP_DIR }}
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          port: 22
-          protocol: tcp4
-          timeout: 1m
-          envs: SERVER_APP_DIR
-          script: |
-            set -eu
-            : "${SERVER_APP_DIR:?SERVER_APP_DIR secret is required}"
-            mkdir -p "$SERVER_APP_DIR/postgres/init"
-            echo "Deployment directory is ready"
-
-      - name: Copy Compose deployment files
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          port: 22
-          source: "docker-compose.production.yaml"
-          target: ${{ secrets.SERVER_APP_DIR }}
-          overwrite: true
 
       - name: Deploy Compose stack over Tailscale
         uses: appleboy/ssh-action@v1.2.0
@@ -153,14 +119,85 @@ jobs:
             : "${DOCKERHUB_USERNAME:?DOCKERHUB_USERNAME secret is required}"
             : "${DOCKERHUB_TOKEN:?DOCKERHUB_TOKEN secret is required}"
             : "${IMAGE_TAG:?GitHub commit tag is required}"
+
+            mkdir -p "$SERVER_APP_DIR/postgres/init"
             cd "$SERVER_APP_DIR"
-            for required_file in docker-compose.production.yaml .env backend/.env frontend/.env; do
+
+            for required_file in .env backend/.env frontend/.env; do
               if [ ! -f "$required_file" ]; then
-                echo "Missing required deployment file: $SERVER_APP_DIR/$required_file" >&2
+                echo "Missing required environment file: $SERVER_APP_DIR/$required_file" >&2
                 exit 1
               fi
             done
-            echo "Deployment files are present"
+            echo "Existing environment files are present"
+
+            cat > docker-compose.production.yaml <<'COMPOSE'
+            services:
+              frontend:
+                image: ${SCRAPPY_FRONTEND_IMAGE}
+                ports:
+                  - "5175:8000"
+                env_file:
+                  - ./frontend/.env
+                restart: unless-stopped
+
+              backend:
+                image: ${SCRAPPY_BACKEND_IMAGE}
+                working_dir: /app
+                command: python -m uvicorn main:app --host 0.0.0.0 --port 8000
+                env_file:
+                  - ./backend/.env
+                ports:
+                  - "8010:8000"
+                depends_on:
+                  postgres:
+                    condition: service_healthy
+                healthcheck:
+                  test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+                  interval: 10s
+                  timeout: 5s
+                  retries: 3
+                restart: unless-stopped
+
+              postgres:
+                image: pgvector/pgvector:pg17
+                ports:
+                  - "5444:5432"
+                environment:
+                  POSTGRES_USER: ${POSTGRES_MAIN_USER}
+                  POSTGRES_PASSWORD: ${POSTGRES_MAIN_PASSWORD}
+                  POSTGRES_DB: ${POSTGRES_MAIN_DB}
+                healthcheck:
+                  test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_MAIN_USER} -d ${POSTGRES_MAIN_DB}"]
+                  interval: 5s
+                  timeout: 5s
+                  retries: 5
+                  start_period: 5s
+                restart: unless-stopped
+                volumes:
+                  - postgres_data_scrappys_metadata:/var/lib/postgresql/data
+                  - ./postgres/init:/docker-entrypoint-initdb.d
+                env_file:
+                  - .env
+
+              db-cache:
+                image: redis:7.4-alpine
+                ports:
+                  - "6380:6379"
+                volumes:
+                  - db_redis_cache_scrappys_cache:/var/lib/redis
+                command: ["redis-server", "--save", "", "--appendonly", "no"]
+                healthcheck:
+                  test: ["CMD", "redis-cli", "ping"]
+                  interval: 10s
+                  timeout: 5s
+                  retries: 3
+                restart: unless-stopped
+
+            volumes:
+              db_redis_cache_scrappys_cache:
+              postgres_data_scrappys_metadata:
+            COMPOSE
 
             printf '%s' "$DOCKERHUB_TOKEN" | docker login \
               --username "$DOCKERHUB_USERNAME" \
@@ -169,17 +206,7 @@ jobs:
             SCRAPPY_BACKEND_IMAGE="${DOCKERHUB_USERNAME}/scrappys-scrapyard:${IMAGE_TAG}"
             SCRAPPY_FRONTEND_IMAGE="${DOCKERHUB_USERNAME}/scrappys-house:${IMAGE_TAG}"
             export SCRAPPY_BACKEND_IMAGE SCRAPPY_FRONTEND_IMAGE
-            cat > docker-compose.deploy.yaml <<'EOF'
-            services:
-              backend:
-                image: ${SCRAPPY_BACKEND_IMAGE}
-                build: null
-              frontend:
-                image: ${SCRAPPY_FRONTEND_IMAGE}
-                build: null
-            EOF
-
-            COMPOSE_FILES="-f docker-compose.production.yaml -f docker-compose.deploy.yaml"
+            COMPOSE_FILES="-f docker-compose.production.yaml"
             echo "Validating Compose configuration"
             docker compose $COMPOSE_FILES config --quiet
             echo "Pulling deployment images"
