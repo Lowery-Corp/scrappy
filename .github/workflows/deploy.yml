@@ -128,7 +128,7 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: 22
-          source: "docker-compose.production.yaml,postgres/init"
+          source: "docker-compose.production.yaml"
           target: ${{ secrets.SERVER_APP_DIR }}
           overwrite: true
 
