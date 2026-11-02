@@ -15,8 +15,6 @@ CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
 
 FROM development AS build
 
-ARG VITE_SCRAPPYS_SCRAPYARD_URL=http://localhost:8010
-ENV VITE_SCRAPPYS_SCRAPYARD_URL=${VITE_SCRAPPYS_SCRAPYARD_URL}
 RUN npm run build
 
 FROM node:20-alpine AS production

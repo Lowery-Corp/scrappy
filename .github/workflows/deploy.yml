@@ -36,6 +36,12 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Verify frontend production configuration
+        run: |
+          set -euo pipefail
+          test -s frontend/.env.production
+          grep -Eq '^VITE_SCRAPPYS_SCRAPYARD_URL=https?://[^[:space:]]+$' frontend/.env.production
+
       - name: Set image names
         id: images
         env:
