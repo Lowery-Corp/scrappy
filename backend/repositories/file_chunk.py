@@ -1,0 +1,174 @@
+from sqlalchemy import delete, insert, select, update
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
+import uuid
+
+from cache.app_cache import app_cache
+from models.file_chunk import FileChunk
+from schemas.file_chunk import FileChunkCreate, FileChunkRead, FileChunkUpdate
+
+
+async def create_file_chunk(
+    file_chunk: FileChunkCreate,
+    session: AsyncSession,
+) -> FileChunk | None:
+    create_values = file_chunk.model_dump(exclude_none=True)
+
+    try:
+        created_file_chunk = await session.scalar(
+            insert(FileChunk)
+            .values(**create_values)
+            .returning(FileChunk)
+        )
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        return None
+
+    if created_file_chunk is not None:
+        await app_cache.invalidate_admin()
+    return created_file_chunk
+
+
+async def list_file_chunks(
+    session: AsyncSession,
+    file_id: uuid.UUID | None = None,
+    file_ids: list[uuid.UUID] | None = None,
+    embedding_status: str | None = None,
+    embedding: list[float] | None = None,
+    chunk_index: int | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> list[FileChunkRead]:
+    stmt = select(FileChunk)
+
+    if file_id is not None:
+        stmt = stmt.where(FileChunk.file_id == file_id)
+    if file_ids is not None:
+        stmt = stmt.where(FileChunk.file_id.in_(file_ids))
+    if embedding_status is not None:
+        stmt = stmt.where(FileChunk.embedding_status == embedding_status)
+    if embedding is not None:
+        stmt = (
+            stmt
+            .order_by(FileChunk.embedding.cosine_distance(embedding))
+            .limit(limit)
+        )
+    if chunk_index is not None:
+        stmt = stmt.where(FileChunk.chunk_index == chunk_index)
+
+    stmt = stmt.order_by(FileChunk.id.desc()).limit(limit).offset(offset)
+
+    result = await session.scalars(stmt)
+
+    return [FileChunkRead.model_validate(file_chunk) for file_chunk in result]
+
+
+async def get_file_chunks(
+    session: AsyncSession,
+    limit: int = 6,
+    file_chunk_id: int | None = None,
+    file_id: uuid.UUID | None = None,
+    embedding: list[float] | None = None,
+) -> list[FileChunkRead] | None:
+    stmt = select(FileChunk)
+
+    if file_chunk_id is not None:
+        stmt = stmt.where(FileChunk.id == file_chunk_id)
+    if embedding is not None:
+        stmt = (
+            stmt
+            .order_by(FileChunk.embedding.cosine_distance(embedding))
+            .limit(limit)
+        )
+    if file_id is not None:
+        stmt = stmt.where(FileChunk.file_id == file_id)
+
+    result = await session.scalars(stmt)
+
+    file_chunks = [FileChunkRead.model_validate(file_chunk) for file_chunk in result]
+    return file_chunks
+
+
+
+async def update_file_chunk(
+    file_chunk_id: int,
+    file_chunk_update: FileChunkUpdate,
+    session: AsyncSession,
+<<<<<<< HEAD:scrappysScrapyard/repositories/file_chunk.py
+) -> list[FileChunk] | None:
+=======
+) -> FileChunk | None:
+>>>>>>> ebdfb1dfaa5fc5a8d958258ef2a71bb15e1fc440:backend/repositories/file_chunk.py
+    existing_file_chunks = await get_file_chunks(
+        file_chunk_id=file_chunk_id,
+        session=session,
+    )
+
+    if existing_file_chunks is None:
+        return None
+
+    update_values = file_chunk_update.model_dump(exclude_unset=True)
+    if not update_values:
+        return None
+
+    updated_file_chunks: list[FileChunk] = []
+    try:
+        for chunk in existing_file_chunks:
+            updated_file_chunk = await session.scalar(
+                update(FileChunk)
+                .where(FileChunk.id == chunk.id)
+                .values(**update_values)
+                .returning(FileChunk)
+            )
+            if updated_file_chunk is not None:
+                updated_file_chunks.append(updated_file_chunk)
+
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        return None
+
+<<<<<<< HEAD:scrappysScrapyard/repositories/file_chunk.py
+    return updated_file_chunks
+=======
+    if updated_file_chunks:
+        await app_cache.invalidate_admin()
+    return updated_file_chunks[0] if updated_file_chunks else None
+>>>>>>> ebdfb1dfaa5fc5a8d958258ef2a71bb15e1fc440:backend/repositories/file_chunk.py
+
+
+async def delete_file_chunk(
+    session: AsyncSession,
+    file_id: uuid.UUID | None = None,
+    file_chunk_id: int | None = None,
+) -> bool:
+    existing_file_chunks = await get_file_chunks(
+        file_id=file_id,
+        file_chunk_id=file_chunk_id,
+        session=session,
+    )
+<<<<<<< HEAD:scrappysScrapyard/repositories/file_chunk.py
+    if existing_file_chunks is None:
+        return True
+
+    stmt = delete(FileChunk)
+
+=======
+    if not existing_file_chunks:
+        return False
+
+    stmt = delete(FileChunk)
+
+>>>>>>> ebdfb1dfaa5fc5a8d958258ef2a71bb15e1fc440:backend/repositories/file_chunk.py
+    if file_chunk_id is not None:
+        stmt = stmt.where(FileChunk.id == file_chunk_id)
+    if file_id is not None:
+        stmt = stmt.where(FileChunk.file_id == file_id)
+
+    await session.execute(stmt)
+    await session.commit()
+    await app_cache.invalidate_admin()
+
+    return True
+

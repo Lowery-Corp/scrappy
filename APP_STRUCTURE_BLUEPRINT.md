@@ -2,8 +2,8 @@
 
 This repository is a full-stack app organized as two primary applications plus local infrastructure:
 
-- `scrappysHouse/`: React/Vite frontend.
-- `scrappysScrapyard/`: FastAPI backend.
+- `frontend/`: React/Vite frontend.
+- `backend/`: FastAPI backend.
 - `docker-compose.yaml`: local multi-service runtime for frontend, backend, Postgres, and Redis.
 - `postgres/`: Postgres initialization mount used by Docker Compose when present.
 
@@ -17,9 +17,9 @@ scrappy/
 ├── README.md
 ├── LICENSE
 ├── docker-compose.yaml
-├── scrappysHouse/
+├── frontend/
 ├── postgres/
-└── scrappysScrapyard/
+└── backend/
 ```
 
 ### Root Files And Directories
@@ -33,8 +33,8 @@ scrappy/
 | `docker-compose.yaml` | Defines the local development stack and wires the frontend, backend, database, and cache together. |
 | `postgres/` | Active Postgres initialization mount used by `docker-compose.yaml`. |
 | `.venv/` | Local Python virtual environment. This is development state, not part of the app blueprint. |
-| `scrappysHouse/` | Frontend application. |
-| `scrappysScrapyard/` | Backend application. |
+| `frontend/` | Frontend application. |
+| `backend/` | Backend application. |
 
 ## Runtime Architecture
 
@@ -44,10 +44,10 @@ The app uses a browser frontend, an API backend, and supporting infrastructure.
 Browser
   |
   v
-scrappysHouse React app
+frontend React app
   |
   v
-scrappysScrapyard FastAPI API
+backend FastAPI API
   |
   +--> PostgreSQL with pgvector
   +--> Redis cache
@@ -60,16 +60,16 @@ Docker Compose services:
 
 | Service | Purpose | Port |
 | --- | --- | --- |
-| `scrappys-house` | Vite React frontend dev server. | `5173` |
-| `scrappys-scrapyard` | FastAPI backend served by Uvicorn. | `8000` |
+| `frontend` | Vite React frontend dev server. | `5173` |
+| `backend` | FastAPI backend served by Uvicorn. | `8000` |
 | `postgres` | PostgreSQL 17 with pgvector support. | `5432` |
 | `db-cache` | Redis cache. | `6379` |
 | `rabbitmq_data` volume | Declared volume reserved for queue/broker data; no RabbitMQ service is currently active in `docker-compose.yaml`. | n/a |
 
-## Frontend: `scrappysHouse/`
+## Frontend: `frontend/`
 
 ```text
-scrappysHouse/
+frontend/
 ├── Dockerfile
 ├── index.html
 ├── package.json
@@ -95,7 +95,7 @@ scrappysHouse/
 ### Frontend Source Layout
 
 ```text
-scrappysHouse/src/
+frontend/src/
 ├── main.jsx
 ├── App.jsx
 ├── App.css
@@ -178,10 +178,10 @@ For new apps using this structure:
 - Put API and integration calls in `src/services/`.
 - Create feature subdirectories under `src/components/` when a feature has several related components.
 
-## Backend: `scrappysScrapyard/`
+## Backend: `backend/`
 
 ```text
-scrappysScrapyard/
+backend/
 ├── Dockerfile
 ├── requirements.txt
 ├── alembic.ini
@@ -317,7 +317,7 @@ Conversation repository conventions:
 The app uses PostgreSQL with SQLAlchemy and Alembic.
 
 ```text
-scrappysScrapyard/alembic/
+backend/alembic/
 ├── env.py
 ├── script.py.mako
 ├── README
@@ -328,7 +328,7 @@ Migration files in `alembic/versions/` define the database history, including us
 
 For new apps:
 
-- Keep SQLAlchemy models in `scrappysScrapyard/models/`.
+- Keep SQLAlchemy models in `backend/models/`.
 - Import models through the database metadata path used by Alembic.
 - Generate one migration per schema change.
 - Keep seed/init SQL limited to database extensions or bootstrap behavior in `postgres/init/`.
@@ -339,8 +339,8 @@ For new apps:
 
 Important conventions:
 
-- Frontend environment belongs in `scrappysHouse/.env`.
-- Backend environment belongs in `scrappysScrapyard/.env`.
+- Frontend environment belongs in `frontend/.env`.
+- Backend environment belongs in `backend/.env`.
 - Shared infrastructure environment belongs in root `.env`.
 - Postgres data is stored in the named Docker volume `postgres_data_scrappys_metadata`.
 - Redis data/cache volume is `db_redis_cache_scrappys_cache`.
@@ -350,19 +350,19 @@ Important conventions:
 
 The current app uses project-specific names:
 
-- `scrappysHouse`: frontend.
-- `scrappysScrapyard`: backend.
-- `scrappys-house`: frontend Docker Compose service.
-- `scrappys-scrapyard`: backend Docker Compose service.
+- `frontend`: frontend.
+- `backend`: backend.
+- `frontend`: frontend Docker Compose service.
+- `backend`: backend Docker Compose service.
 
 When creating a new app from this blueprint, preserve the roles but rename consistently:
 
 | Current Name | New App Equivalent |
 | --- | --- |
-| `scrappysHouse` | `<appName>House` or `frontend` |
-| `scrappysScrapyard` | `<appName>Scrapyard` or `backend` |
-| `scrappys-house` | `<app-name>-frontend` |
-| `scrappys-scrapyard` | `<app-name>-backend` |
+| `frontend` | `<appName>House` or `frontend` |
+| `backend` | `<appName>Scrapyard` or `backend` |
+| `frontend` | `<app-name>-frontend` |
+| `backend` | `<app-name>-backend` |
 
 Pick either themed names or generic names. Do not mix both in a new app.
 

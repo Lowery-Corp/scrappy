@@ -1,0 +1,36 @@
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+class Settings(BaseSettings):
+    database_url: str
+    redis_url: str
+    auth_api_url: str
+    offload_api_url: str
+    minio_api_url: str
+    minio_root_user: str
+    minio_root_password: str
+    minio_secure: bool
+    internal_api_username: str
+    internal_api_password: str
+    celery_broker_url: str
+    celery_result_backend: str
+    rabbitmq_default_user: str
+    rabbitmq_default_pass: str
+    cookie_key: str
+<<<<<<< HEAD:scrappysScrapyard/core/config.py
+    scrappys_api_key: str
+=======
+    cookie_secure: bool = True
+    scrappys_api_key: str
+    max_upload_size_bytes: int = 50 * 1024 * 1024
+    allowed_origins: list[str]
+>>>>>>> ebdfb1dfaa5fc5a8d958258ef2a71bb15e1fc440:backend/core/config.py
+
+    internal_cookie: str | None = None
+    openai_api_key: str | None = None
+    openai_api_url: str = "https://api.openai.com"
+    openai_default_model: str = "gpt-5.5"
+
+
+    model_config = SettingsConfigDict(env_file=".env")
+
+settings = Settings()
