@@ -8,7 +8,15 @@ services:
       - "5175:8000"
     env_file:
       - ./frontend/.env
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--quiet", "http://127.0.0.1:8000/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     restart: unless-stopped
+    labels:
+      autoheal: "true"
 
   backend:
     build:
@@ -29,6 +37,8 @@ services:
       timeout: 5s
       retries: 3
     restart: unless-stopped
+    labels:
+      autoheal: "true"
 
   postgres:
     image: pgvector/pgvector:pg17
@@ -45,6 +55,8 @@ services:
       retries: 5
       start_period: 5s
     restart: unless-stopped
+    labels:
+      autoheal: "true"
     volumes:
       - postgres_data_scrappys_metadata:/var/lib/postgresql/data
       - ./postgres/init:/docker-entrypoint-initdb.d
@@ -64,6 +76,25 @@ services:
       timeout: 5s
       retries: 3
     restart: unless-stopped
+    labels:
+      autoheal: "true"
+
+  autoheal:
+    image: willfarrell/autoheal:1.2.0
+    network_mode: none
+    restart: always
+    environment:
+      AUTOHEAL_CONTAINER_LABEL: autoheal
+      AUTOHEAL_ONLY_MONITOR_RUNNING: "true"
+      AUTOHEAL_INTERVAL: "10"
+      AUTOHEAL_START_PERIOD: "30"
+    healthcheck:
+      test: ["CMD-SHELL", "kill -0 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
 
 volumes:
   db_redis_cache_scrappys_cache:
